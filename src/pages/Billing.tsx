@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Trash2, ShoppingCart, Save, Plus, AlertCircle, Loader2 } from 'lucide-react';
+import { Search, Trash2, ShoppingCart, Save, Plus, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Medicine, CartItem } from '../types';
 import { cn } from '../lib/utils';
@@ -106,7 +106,7 @@ const Billing = () => {
   
   const totalProfit = cart.reduce((sum, item) => {
     // Profit = (Selling Price - Purchase Price) * Qty
-    const profitPerUnit = item.sellingPrice - (item.purchase_price / item.units_per_packet); // Purchase price is usually per strip/box?
+    // Profit = (Selling Price - Purchase Price) * Qty
     // Wait. purchase_price in schema usually refers to the Buying Price of the 'pack'? 
     // In AddMedicineModal: Price Row has MRP and Purchase Price. 
     // If quantity_type is 'Strip', does Purchase Price mean per Strip?
@@ -164,7 +164,7 @@ const Billing = () => {
         }))
       };
 
-      const { data, error } = await supabase.rpc('create_bill_transaction', payload);
+      const { error } = await supabase.rpc('create_bill_transaction', payload);
 
       if (error) throw error;
 
