@@ -22,8 +22,39 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: '/vite.svg'
+    icon: '/vite.svg',
+    // data is crucial for click handling
+    data: payload.data 
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+self.addEventListener('notificationclick', function(event) {
+  console.log('[firebase-messaging-sw.js] Notification click Received.', event.notification.data);
+  
+  event.notification.close();
+
+  // URL to open
+  const targetUrl = event.notification.data?.url;
+
+  if (targetUrl) {
+      // This looks to see if the current is already open and focuses if it is
+      event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+          // Check if there is already a window/tab open with the target URL
+          for (var i = 0; i < windowClients.length; i++) {
+            var client = windowClients[i];
+            // Basic check if client url contains our base url or target
+            if (client.url === targetUrl && 'focus' in client) {
+              return client.focus();
+            }
+          }
+          // If not, open a new window
+          if (clients.openWindow) {
+            return clients.openWindow(targetUrl);
+          }
+        })
+      );
+  }
 });

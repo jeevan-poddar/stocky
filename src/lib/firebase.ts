@@ -1,8 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getMessaging } from 'firebase/messaging';
+import { getMessaging, isSupported } from 'firebase/messaging';
 
-// Replace with your app's Firebase project configuration
-// Get these from Firebase Console -> Project Settings
 const firebaseConfig = {
     apiKey: "AIzaSyBxKdSXGuMZIZVvrbc9sPn53u9tzgVBeNc",
     authDomain: "stocky-24ce6.firebaseapp.com",
@@ -15,5 +13,11 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Cloud Messaging and get a reference to the service
-export const messaging = getMessaging(app);
+// Initialize messaging conditionally
+export const getMessagingInstance = async () => {
+    // isSupported() checks for both HTTPS and browser compatibility
+    if (typeof window !== 'undefined' && await isSupported()) {
+        return getMessaging(app);
+    }
+    return null;
+};

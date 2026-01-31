@@ -294,6 +294,7 @@ const Inventory = () => {
         }}
         initialData={selectedMedicine}
         isViewMode={isViewMode}
+        lowStockThreshold={lowStockThreshold}
       />
 
        {/* Delete Confirmation Modal */}

@@ -5,6 +5,7 @@ import type { Medicine, CartItem } from '../types';
 import { cn } from '../lib/utils';
 import { getNewInvoiceNumber } from '../lib/billUtils';
 import SuccessModal from '../components/SuccessModal';
+import { triggerLowStockAlert } from '../lib/notificationUtils';
 
 const Billing = () => {
   // --- State ---
@@ -28,6 +29,7 @@ const Billing = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [grandTotal, setGrandTotal] = useState(0);
+  const [lowStockThreshold, setLowStockThreshold] = useState(10);
 
   // Success Modal
   const [successModal, setSuccessModal] = useState<{isOpen: boolean, title: string, message: string}>({
@@ -56,11 +58,12 @@ const Billing = () => {
       if (user) {
         const { data } = await supabase
           .from('profiles')
-          .select('dl_number')
+          .select('dl_number, low_stock_threshold')
           .eq('id', user.id)
           .single();
-        if (data?.dl_number) {
-          setSellerDLNumber(data.dl_number);
+        if (data) {
+          if (data.dl_number) setSellerDLNumber(data.dl_number);
+          if (data.low_stock_threshold) setLowStockThreshold(data.low_stock_threshold);
         }
       }
     };
@@ -181,6 +184,21 @@ const Billing = () => {
           title: 'Bill Saved!',
           message: `Invoice #${invoiceNumber} generated successfully.`
       });
+
+      // --- Instant Inventory Alert (Billing) ---
+      cart.forEach(item => {
+         // Logic: Estimate new box count
+         const unitsPerBox = item.units_per_packet && item.units_per_packet > 0 ? item.units_per_packet : 1;
+         const currentTotalUnits = (item.stock_packets * unitsPerBox) + item.stock_loose;
+         const soldUnits = item.cartQuantity; // Assuming cart is unit-based
+         const remainingUnits = currentTotalUnits - soldUnits;
+         const remainingBoxes = Math.floor(remainingUnits / unitsPerBox);
+
+         if (remainingBoxes <= lowStockThreshold) {
+             triggerLowStockAlert(item.name, remainingBoxes);
+         }
+      });
+
       // Clear all
       setCart([]);
       setCustomerName('');

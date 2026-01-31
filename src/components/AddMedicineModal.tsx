@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Loader2, Edit2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { MedicineInsert, Medicine } from '../types';
+import { triggerLowStockAlert } from '../lib/notificationUtils';
 
 interface AddMedicineModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface AddMedicineModalProps {
   onSuccess: () => void;
   initialData?: Medicine | null;
   isViewMode?: boolean;
+  lowStockThreshold?: number;
 }
 
 const AddMedicineModal: React.FC<AddMedicineModalProps> = ({ 
@@ -16,7 +18,8 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
   onClose, 
   onSuccess,
   initialData,
-  isViewMode = false
+  isViewMode = false,
+  lowStockThreshold = 10
 }) => {
   const [loading, setLoading] = useState(false);
   // Replaced single error string with error object
@@ -106,7 +109,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSaveMedicine = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isEditing) return;
 
@@ -114,31 +117,36 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     setErrors({});
     setGlobalError(null);
 
-    // --- Validation Logic ---
     const newErrors: {[key: string]: string} = {};
-    
-    // Explicit checks:
-
-    if (!formData.name.trim()) newErrors.name = "This field is mandatory.";
-    // else if (!/^[A-Za-z\s]+$/.test(formData.name)) newErrors.name = "Name can only contain letters."; // Requirement
-
-    if (!formData.composition.trim()) newErrors.composition = "This field is mandatory.";
-    
-    if (!formData.purchased_from.trim()) newErrors.purchased_from = "This field is mandatory.";
-    if (!formData.company.trim()) newErrors.company = "This field is mandatory.";
-    if (!formData.batch_no.trim()) newErrors.batch_no = "This field is mandatory.";
-    
-    // Dates
     const today = new Date().toISOString().split('T')[0];
-    if (!formData.manufacture_date) newErrors.manufacture_date = "This field is mandatory.";
-    else if (formData.manufacture_date > today) newErrors.manufacture_date = "Manufacturing date cannot be in the future."; // Requirement
 
-    if (!formData.expiry_date) newErrors.expiry_date = "This field is mandatory.";
+    // --- Validation ---
+    
+    // Name: No numbers or symbols allowed
+    if (!formData.name.trim()) {
+        newErrors.name = "This field is required";
+    } else if (!/^[A-Za-z\s]+$/.test(formData.name)) {
+        newErrors.name = "Name must not contain numbers or symbols";
+    }
 
-    if (formData.stock_packets === undefined || formData.stock_packets === null) newErrors.stock_packets = "This field is mandatory."; // 0 is valid? "empty" usually means ""
-    if (!formData.mrp) newErrors.mrp = "This field is mandatory.";
-    if (!formData.purchase_price) newErrors.purchase_price = "This field is mandatory.";
+    if (!formData.composition.trim()) newErrors.composition = "This field is required";
+    if (!formData.purchased_from.trim()) newErrors.purchased_from = "This field is required";
+    if (!formData.company.trim()) newErrors.company = "This field is required";
+    if (!formData.batch_no.trim()) newErrors.batch_no = "This field is required";
+    
+    // Date: Mfg date not in future
+    if (!formData.manufacture_date) {
+        newErrors.manufacture_date = "This field is required";
+    } else if (formData.manufacture_date > today) {
+        newErrors.manufacture_date = "Manuf. date cannot be in the future";
+    }
 
+    if (!formData.expiry_date) newErrors.expiry_date = "This field is required";
+
+    // Stock & Price (treating 0 as valid but empty string should be caught if input type=text, but type=number handles it)
+    if (!formData.mrp) newErrors.mrp = "This field is required";
+    if (!formData.purchase_price) newErrors.purchase_price = "This field is required";
+    
     if (Object.keys(newErrors).length > 0) {
         setErrors(newErrors);
         setLoading(false);
@@ -177,6 +185,13 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
       if (error) throw error;
 
       onSuccess();
+      
+      // --- Threshold Check (Instant Notification) ---
+      // If stock is below threshold (and we have a name), trigger alert
+      if (formData.stock_packets <= lowStockThreshold) {
+          triggerLowStockAlert(formData.name, formData.stock_packets);
+      }
+
       setFormData(initialFormData);
       onClose();
     } catch (err: any) {
@@ -232,7 +247,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSaveMedicine} className="space-y-4">
               {/* Row 1: Basic Info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-1">
@@ -240,7 +255,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                   <input 
                     type="text" 
                     name="name" 
-                    // required 
+                    // removed required 
                     autoComplete="off"
                     value={formData.name} 
                     onChange={handleChange} 
@@ -254,7 +269,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                   <input 
                     type="text" 
                     name="composition" 
-                    // required 
+                    // removed required 
                     autoComplete="off"
                     value={formData.composition} 
                     onChange={handleChange} 

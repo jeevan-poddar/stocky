@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { onMessage } from 'firebase/messaging';
-import { messaging } from './lib/firebase';
+import { getMessagingInstance } from './lib/firebase';
 import useFcmToken from './hooks/useFcmToken';
 import AuthLayout from './components/AuthLayout';
 import DashboardLayout from './components/DashboardLayout';
@@ -18,21 +18,63 @@ import Notifications from './pages/Notifications';
 
 import { checkInventoryNotifications } from './lib/inventoryUtils';
 
-function App() {
-  // Initialize FCM Token and Permission
+import { useNavigate } from 'react-router-dom';
+import { ToastProvider, useToast } from './context/ToastContext';
+import { InventoryProvider, useInventory } from './context/InventoryContext';
+
+function AppContent() {
   const { notificationPermissionStatus } = useFcmToken();
+  const { sendNotification } = useToast();
+  const { triggerRefresh } = useInventory();
+  const navigate = useNavigate();
 
   // Handle Foreground Messages
   useEffect(() => {
-    if (notificationPermissionStatus === 'granted') {
-      const unsubscribe = onMessage(messaging, (_) => {
-        // console.log('Foreground Message received: ', payload);
-        // const { title, body } = payload.notification || {};
-        // Alert removed as requested
-      });
-      return () => unsubscribe();
-    }
-  }, [notificationPermissionStatus]);
+    const setupMessaging = async () => {
+      if (notificationPermissionStatus === 'granted') {
+        const messaging = await getMessagingInstance();
+        
+        if (messaging) {
+          const unsubscribe = onMessage(messaging, (payload) => {
+            console.log('Foreground Message received: ', payload);
+            const { title, body } = payload.notification || {};
+            const { medicine_id, url } = payload.data || {};
+
+            // 1. Instant Notification "Throw" (Toast + Alert)
+            if (title && body) {
+              
+              // Determine Action
+              let action = undefined;
+              if (url) {
+                  action = {
+                      label: 'View Returns',
+                      onClick: () => navigate(url)
+                  };
+              }
+
+              // Toast with Action
+              sendNotification(`${title}: ${body}`, 'warning', action);
+              
+               if ('Notification' in window && Notification.permission === 'granted') {
+                   new Notification(title, { 
+                       body, 
+                       icon: '/stocky-logo.png' 
+                   });
+               }
+            }
+
+            // 2. Instant Inventory Check (Sync)
+            if (medicine_id) {
+                triggerRefresh();
+            }
+          });
+          return () => unsubscribe();
+        }
+      }
+    };
+    
+    setupMessaging();
+  }, [notificationPermissionStatus, sendNotification, triggerRefresh, navigate]);
 
   // Check Inventory Notifications
   useEffect(() => {
@@ -50,7 +92,6 @@ function App() {
   }, []);
 
   return (
-    <Router>
       <Routes>
         {/* Public Routes */}
         <Route element={<AuthLayout />}>
@@ -83,7 +124,18 @@ function App() {
         {/* Catch all redirect */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
-    </Router>
+  );
+}
+
+function App() {
+  return (
+    <ToastProvider>
+      <InventoryProvider>
+        <Router>
+             <AppContent />
+        </Router>
+      </InventoryProvider>
+    </ToastProvider>
   );
 }
 
