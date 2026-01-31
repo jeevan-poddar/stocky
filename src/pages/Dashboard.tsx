@@ -20,7 +20,8 @@ const Dashboard = () => {
     todayBills: 0,
     lowStock: 0,
     expiringSoon: 0,
-    expiryThreshold: 60
+    expiryThreshold: 60,
+    lowStockThreshold: 10
   });
   const [recentBills, setRecentBills] = useState<Bill[]>([]);
   const [lowStockItems, setLowStockItems] = useState<Medicine[]>([]);
@@ -39,10 +40,11 @@ const Dashboard = () => {
       // 0. Fetch Profile for Threshold
       const { data: profile } = await supabase
         .from('profiles')
-        .select('expiry_threshold_days')
+        .select('expiry_threshold_days, low_stock_threshold')
         .single();
       
       const threshold = profile?.expiry_threshold_days || 60;
+      const stockThreshold = profile?.low_stock_threshold || 10;
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -75,7 +77,7 @@ const Dashboard = () => {
 
       // Process Low Stock & Expiring Data
       const allMedicines = (medicinesData.data as Medicine[]) || [];
-      const lowStock = allMedicines.filter(m => m.stock_packets < 2);
+      const lowStock = allMedicines.filter(m => m.stock_packets <= stockThreshold);
       
       const expiryDateLimit = addDays(new Date(), threshold);
       const expiringSoon = allMedicines.filter(m => new Date(m.expiry_date) <= expiryDateLimit);
@@ -87,7 +89,8 @@ const Dashboard = () => {
         todayBills: todayBills.length,
         lowStock: lowStock.length,
         expiringSoon: expiringSoon.length,
-        expiryThreshold: threshold
+        expiryThreshold: threshold,
+        lowStockThreshold: stockThreshold
       });
 
       setRecentBills(recentBillsData.data || []);
@@ -178,7 +181,7 @@ const Dashboard = () => {
         <StatCard
           title="Low Stock Items"
           value={stats.lowStock}
-          subtext="Medicines with packets < 2"
+          subtext={`Medicines with packets <= ${stats.lowStockThreshold}`}
           icon={AlertTriangle}
           colorClass="text-amber-600"
           bgClass="bg-amber-50"

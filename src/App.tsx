@@ -1,4 +1,8 @@
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { onMessage } from 'firebase/messaging';
+import { messaging } from './lib/firebase';
+import useFcmToken from './hooks/useFcmToken';
 import AuthLayout from './components/AuthLayout';
 import DashboardLayout from './components/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -11,7 +15,40 @@ import SalesHistory from './pages/SalesHistory';
 import Returns from './pages/Returns';
 import Settings from './pages/Settings';
 
+import { checkInventoryNotifications } from './lib/inventoryUtils';
+
 function App() {
+  // Initialize FCM Token and Permission
+  const { notificationPermissionStatus } = useFcmToken();
+
+  // Handle Foreground Messages
+  useEffect(() => {
+    if (notificationPermissionStatus === 'granted') {
+      const unsubscribe = onMessage(messaging, (payload) => {
+        console.log('Foreground Message received: ', payload);
+        const { title, body } = payload.notification || {};
+        // You can replace this with a toast notification
+        alert(`New Message: ${title} - ${body}`);
+      });
+      return () => unsubscribe();
+    }
+  }, [notificationPermissionStatus]);
+
+  // Check Inventory Notifications
+  useEffect(() => {
+    const runCheck = async () => {
+      const messages = await checkInventoryNotifications();
+      if (messages && messages.length > 0) {
+        // Concatenate for simple alert
+        const combinedMessage = messages.map(m => `${m.title}: ${m.message}`).join('\n\n');
+        
+        console.log("Inventory Alerts:", combinedMessage);
+        setTimeout(() => alert(combinedMessage), 1000);
+      }
+    };
+    runCheck();
+  }, []);
+
   return (
     <Router>
       <Routes>

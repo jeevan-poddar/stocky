@@ -9,6 +9,7 @@ interface SettingsForm {
   city: string;
   state: string;
   expiry_threshold_days: number;
+  low_stock_threshold: number;
 }
 
 const Settings = () => {
@@ -24,6 +25,7 @@ const Settings = () => {
     city: '',
     state: '',
     expiry_threshold_days: 60,
+    low_stock_threshold: 10,
   });
 
   useEffect(() => {
@@ -57,6 +59,7 @@ const Settings = () => {
           city: data.city || '',
           state: data.state || '',
           expiry_threshold_days: data.expiry_threshold_days || 60,
+          low_stock_threshold: data.low_stock_threshold || 10,
         });
       }
     } catch (error) {
@@ -70,7 +73,8 @@ const Settings = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'expiry_threshold_days' ? parseInt(value) || 0 : value
+      ...prev,
+      [name]: (name === 'expiry_threshold_days' || name === 'low_stock_threshold') ? parseInt(value) || 0 : value
     }));
   };
 
@@ -97,6 +101,7 @@ const Settings = () => {
           city: formData.city,
           state: formData.state,
           expiry_threshold_days: formData.expiry_threshold_days,
+          low_stock_threshold: formData.low_stock_threshold,
         })
         .eq('id', userId);
 
@@ -253,6 +258,24 @@ const Settings = () => {
               </div>
               <p className="text-xs text-gray-500">
                 You will be warned when medicines are expiring within this many days.
+              </p>
+            </div>
+
+            <div className="space-y-2 max-w-md mt-6">
+              <label className="text-sm font-medium text-gray-700">Low Stock Threshold (Packets)</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  name="low_stock_threshold"
+                  value={formData.low_stock_threshold}
+                  onChange={handleChange}
+                  min="1"
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                />
+                <span className="absolute right-4 top-2.5 text-sm text-gray-400">units</span>
+              </div>
+              <p className="text-xs text-gray-500">
+                Medicines with stock packets below this level will be marked as "Low Stock".
               </p>
             </div>
           </div>

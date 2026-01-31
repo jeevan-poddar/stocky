@@ -30,6 +30,7 @@ const SalesHistory = () => {
         (bill) =>
           bill.customer_name?.toLowerCase().includes(lowerQuery) ||
           bill.customer_phone?.includes(searchTerm) ||
+          bill.invoice_number?.toLowerCase().includes(lowerQuery) ||
           bill.id.toLowerCase().includes(lowerQuery)
       );
       setFilteredBills(filtered);
@@ -121,7 +122,7 @@ const SalesHistory = () => {
       doc.setFontSize(12);
       doc.setFont('helvetica', 'normal');
       doc.text('Invoice', 14, 50);
-      doc.text(`#${bill.id.slice(0, 8)}`, 14, 55);
+      doc.text(`#${bill.invoice_number || bill.id.slice(0, 8)}`, 14, 55);
       const dateStr = format(new Date(bill.created_at), 'dd/MM/yyyy');
       const timeStr = format(new Date(bill.created_at), 'hh:mm a');
       doc.text(`Date: ${dateStr}   Time: ${timeStr}`, 14, 60);
@@ -158,7 +159,7 @@ const SalesHistory = () => {
       
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      const footerText = "Thank you for your business!";
+      const footerText = "Get Well Soon!";
       const footerWidth = doc.getTextWidth(footerText);
       doc.text(footerText, (pageWidth - footerWidth) / 2, finalY + 15);
 
@@ -210,7 +211,7 @@ const SalesHistory = () => {
           <table className="w-full text-sm text-left">
             <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
               <tr>
-                <th className="px-6 py-4">Bill ID</th>
+                <th className="px-6 py-4">Invoice No</th>
                 <th className="px-6 py-4">Customer</th>
                 <th className="px-6 py-4">Date</th>
                 <th className="px-6 py-4">Payment Mode</th>
@@ -238,7 +239,7 @@ const SalesHistory = () => {
                 filteredBills.map((bill) => (
                   <tr key={bill.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4 font-mono text-gray-500">
-                      #{bill.id.slice(0, 8)}
+                      {bill.invoice_number || `#${bill.id.slice(0, 8)}`}
                     </td>
                     <td className="px-6 py-4 font-medium text-gray-900">
                       <div>{bill.customer_name}</div>

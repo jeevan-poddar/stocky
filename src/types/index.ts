@@ -3,7 +3,6 @@ export interface Medicine {
   name: string;
   composition: string;
   batch_no: string;
-  hsn_code: string;
   quantity_type: 'Strip' | 'Unit';
   units_per_packet: number;
   stock_packets: number;
@@ -12,8 +11,9 @@ export interface Medicine {
   expiry_date: string; // ISO date string YYYY-MM-DD
   mrp: number;
   purchase_price: number;
-  gst_percentage: number;
   location: string;
+  purchased_from: string;
+  company: string;
   created_at?: string;
 }
 
@@ -43,6 +43,7 @@ export interface Bill {
   payment_mode: string;
   status: string;
   created_at: string;
+  invoice_number?: string;
   bill_items?: BillItem[];
 }
 
@@ -58,6 +59,7 @@ export interface Profile {
   gstin: string;
   dl_number: string;
   expiry_threshold_days: number;
+  low_stock_threshold: number;
   created_at: string;
 }
 

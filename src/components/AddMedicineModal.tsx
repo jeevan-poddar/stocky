@@ -30,7 +30,6 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     name: '',
     composition: '',
     batch_no: '',
-    hsn_code: '',
     quantity_type: 'Strip', // Default default
     units_per_packet: 10,
     stock_packets: 0,
@@ -39,8 +38,9 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     expiry_date: '',
     mrp: 0,
     purchase_price: 0,
-    gst_percentage: 12,
     location: '',
+    purchased_from: '',
+    company: ''
   };
 
   const [formData, setFormData] = useState<MedicineInsert>(initialFormData);
@@ -62,7 +62,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     const { name, value } = e.target;
 
     // Handle number inputs
-    if (['units_per_packet', 'stock_packets', 'stock_loose', 'mrp', 'purchase_price', 'gst_percentage'].includes(name)) {
+    if (['units_per_packet', 'stock_packets', 'stock_loose', 'mrp', 'purchase_price'].includes(name)) {
       setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -71,7 +71,12 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     // Special logic for quantity_type
     if (name === 'quantity_type') {
       if (value === 'Unit') {
-        setFormData(prev => ({ ...prev, quantity_type: 'Unit', units_per_packet: 1 }));
+        setFormData(prev => ({ 
+          ...prev, 
+          quantity_type: 'Unit', 
+          units_per_packet: 1,
+          stock_loose: 0 // Auto-set loose quantity to 0
+        }));
       } else {
         setFormData(prev => ({ ...prev, quantity_type: 'Strip' }));
       }
@@ -198,7 +203,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Row 1: Basic Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-1">
                   <label className="block text-sm font-medium text-gray-700">Name</label>
                   <input 
@@ -223,7 +228,41 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500" 
                   />
                 </div>
+              </div>
+
+               {/* Row 2: Supply Chain (New) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-1">
+                  <label className="block text-sm font-medium text-gray-700">Purchased From (Wholesaler)</label>
+                  <input 
+                    type="text" 
+                    name="purchased_from" 
+                    required 
+                    value={formData.purchased_from} 
+                    onChange={handleChange} 
+                    disabled={!isEditing}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500"
+                    placeholder="e.g. Health Distributors"
+                  />
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="block text-sm font-medium text-gray-700">Company (Manufacturer)</label>
+                  <input 
+                    type="text" 
+                    name="company" 
+                    required 
+                    value={formData.company} 
+                    onChange={handleChange} 
+                    disabled={!isEditing}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500"
+                    placeholder="e.g. Sun Pharma"
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: Batch & Location */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                 <div className="sm:col-span-1">
                   <label className="block text-sm font-medium text-gray-700">Batch No</label>
                   <input 
                     type="text" 
@@ -235,20 +274,20 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                     className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500" 
                   />
                 </div>
-                <div className="sm:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700">HSN Code</label>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">Location / Rack</label>
                   <input 
                     type="text" 
-                    name="hsn_code" 
-                    value={formData.hsn_code} 
+                    name="location" 
+                    value={formData.location} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500" 
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500"
                   />
                 </div>
               </div>
 
-              {/* Row 2: Dates */}
+              {/* Row 4: Dates */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Mfg Date</label>
@@ -276,7 +315,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                 </div>
               </div>
 
-               {/* Row 3: Type & Logic */}
+               {/* Row 5: Type & Logic */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Quantity Type</label>
@@ -304,7 +343,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                 </div>
               </div>
 
-               {/* Row 4: Stock */}
+               {/* Row 6: Stock */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Stock (Packets/Boxes)</label>
@@ -325,14 +364,14 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                     name="stock_loose" 
                     value={formData.stock_loose} 
                     onChange={handleChange} 
-                    disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500" 
+                    disabled={formData.quantity_type === 'Unit' || !isEditing}
+                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:text-gray-500" 
                   />
                 </div>
               </div>
 
-              {/* Row 5: Price */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Row 7: Price */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                  <div>
                   <label className="block text-sm font-medium text-gray-700">MRP</label>
                   <div className="mt-1 relative rounded-md shadow-sm">
@@ -369,31 +408,6 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                     />
                   </div>
                 </div>
-                 <div>
-                  <label className="block text-sm font-medium text-gray-700">GST %</label>
-                  <input 
-                    type="number" 
-                    step="0.01" 
-                    name="gst_percentage" 
-                    required 
-                    value={formData.gst_percentage} 
-                    onChange={handleChange} 
-                    disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500"
-                  />
-                </div>
-              </div>
-              
-              <div className="sm:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700">Location / Rack</label>
-                  <input 
-                    type="text" 
-                    name="location" 
-                    value={formData.location} 
-                    onChange={handleChange} 
-                    disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500"
-                  />
               </div>
 
               <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">

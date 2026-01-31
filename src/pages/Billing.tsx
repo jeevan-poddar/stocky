@@ -3,6 +3,7 @@ import { Search, Trash2, ShoppingCart, Save, Plus, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabase';
 import type { Medicine, CartItem } from '../types';
 import { cn } from '../lib/utils';
+import { getNewInvoiceNumber } from '../lib/billUtils';
 
 const Billing = () => {
   // --- State ---
@@ -145,6 +146,9 @@ const Billing = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Generate Invoice Number
+      const invoiceNumber = await getNewInvoiceNumber();
+
       // Prepare payload for RPC
       const payload = {
         p_customer_name: customerName,
@@ -153,6 +157,7 @@ const Billing = () => {
         p_total_amount: grandTotal,
         p_total_profit: totalProfit,
         p_payment_mode: paymentMode,
+        p_invoice_number: invoiceNumber,
         p_items: cart.map(item => ({
           id: item.id,
           name: item.name,

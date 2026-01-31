@@ -14,6 +14,7 @@ const Inventory = () => {
   const [isViewMode, setIsViewMode] = useState(false);
 
   const [expiryThreshold, setExpiryThreshold] = useState(60);
+  const [lowStockThreshold, setLowStockThreshold] = useState(10);
   const [hideOutOfStock, setHideOutOfStock] = useState(false);
 
   useEffect(() => {
@@ -32,7 +33,7 @@ const Inventory = () => {
           .order('name', { ascending: true }),
         supabase
           .from('profiles')
-          .select('expiry_threshold_days')
+          .select('expiry_threshold_days, low_stock_threshold')
           .single()
       ]);
 
@@ -42,6 +43,7 @@ const Inventory = () => {
 
       if (profileData.data) {
         setExpiryThreshold(profileData.data.expiry_threshold_days || 60);
+        setLowStockThreshold(profileData.data.low_stock_threshold || 10);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -179,10 +181,15 @@ const Inventory = () => {
               ) : (
                 filteredMedicines.map((med) => {
                   const expiryStatus = getExpiryStatus(med.expiry_date);
+                  const isLowStock = med.stock_packets <= lowStockThreshold;
+                  
                   return (
                     <tr 
                       key={med.id} 
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      className={cn(
+                        "transition-colors cursor-pointer",
+                        isLowStock ? "bg-amber-50 hover:bg-amber-100" : "hover:bg-gray-50"
+                      )}
                       onClick={() => handleView(med)}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -191,7 +198,6 @@ const Inventory = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{med.batch_no}</div>
-                        <div className="text-xs text-gray-500">{med.hsn_code}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={cn(
@@ -204,6 +210,11 @@ const Inventory = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                          {med.stock_packets} {med.quantity_type === 'Strip' ? 'Boxes' : 'Units'} + {med.stock_loose} Loose
+                         {isLowStock && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                              Low Stock
+                            </span>
+                         )}
                       </td>
                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         ₹{med.mrp.toFixed(2)} / {med.quantity_type}

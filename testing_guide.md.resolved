@@ -1,0 +1,71 @@
+# Notification Testing Guide
+
+This guide explains how to verify all notification systems in your application.
+
+## 1. Inventory Alerts (Navbar & App Load)
+
+These alerts are generated locally based on your inventory data and settings.
+
+### Case A: Low Stock Alert
+**Goal**: Verify the app warns you when stock is low.
+
+1.  **Check Current Threshold**: Go to **Settings** and note your "Low Stock Threshold" (e.g., `10`).
+2.  **Edit Inventory**:
+    *   Go to **Inventory**.
+    *   Find a medicine with stock *above* the threshold (e.g., 50).
+    *   Edit it (e.g., via Supabase Dashboard or if you add an Edit feature later) to have `stock_packets` = `5`.
+    *   *Alternatively*, just increase your **Settings** threshold to `100`.
+3.  **Verify**:
+    *   Refresh the page.
+    *   **Navbar**: The Bell icon should have a red dot.
+    *   **Dropdown**: Click the bell; you should see "Restock Needed...".
+    *   **Inventory Page**: The item row should be yellow with a "Low Stock" badge.
+
+### Case B: Expiry Alert
+**Goal**: Verify the app warns you about upcoming expirations.
+
+1.  **Check Current Threshold**: Go to **Settings** and note "Expiry Alert Threshold" (e.g., `60` days).
+2.  **Edit Inventory**:
+    *   Go to **Supabase Dashboard** -> `medicines` table.
+    *   Find an item.
+    *   Set its `expiry_date` to be within the next 30 days (e.g., if today is Jan 1st, set it to Jan 20th).
+3.  **Verify**:
+    *   Refresh the app.
+    *   **Navbar**: Bell icon should have a red dot.
+    *   **Dropdown**: Click the bell; you should see "Expiring Soon...".
+
+---
+
+## 2. Remote Push Notifications (Firebase FCM)
+
+These are notifications sent from the server (or manually via Firebase Console) to your device.
+
+### Preparation
+1.  Open your **Browser Console** (Cmd+Opt+J or F12).
+2.  Refresh the app.
+3.  Look for the log: `Use this string to send notifications: <YOUR_TOKEN>`.
+4.  Copy this long token string.
+
+### Case C: Foreground Notification (App is Open)
+**Goal**: Verify you receive simple alerts while working in the app.
+
+1.  Keep the app **OPEN** in your browser tab.
+2.  Go to **Firebase Console** -> **Cloud Messaging**.
+3.  Click **"Send your first message"** (or "New campaign" -> "Notifications").
+4.  **Compose**:
+    *   Title: `Test Foreground`
+    *   Text: `Hello from Firebase!`
+5.  **Target**: Click "Send Test Message".
+6.  **Paste Token**: Paste the token you copied earlier and click the "+" button.
+7.  **Send**: Click "Test".
+8.  **Verify**:
+    *   You should see a browser `alert()` pop up instantly: `New Message: Test Foreground - Hello from Firebase!`.
+
+### Case D: Background Notification (App is Closed/Hidden)
+**Goal**: Verify you receive system-level notifications when the app is away.
+
+1.  **Minimize** the app window or switch to a **different tab**. (The app must not be the active focused tab).
+2.  Repeat the steps from **Case C** in Firebase Console to send a *new* message (e.g., Title: `Test Background`).
+3.  **Verify**:
+    *   You should see a **System Notification** (like a native macOS/Windows banner) slide in.
+    *   Clicking it should focus/open the app.
