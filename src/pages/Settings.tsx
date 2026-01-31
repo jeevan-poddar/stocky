@@ -58,6 +58,7 @@ const Settings = () => {
           phone: data.phone || '',
           city: data.city || '',
           state: data.state || '',
+          dl_number: data.dl_number || '',
           expiry_threshold_days: data.expiry_threshold_days || 60,
           low_stock_threshold: data.low_stock_threshold || 10,
         });
@@ -115,6 +116,7 @@ const Settings = () => {
           phone: formData.phone,
           city: formData.city,
           state: formData.state,
+          dl_number: formData.dl_number,
           expiry_threshold_days: formData.expiry_threshold_days,
           low_stock_threshold: formData.low_stock_threshold,
         })
@@ -210,9 +212,22 @@ const Settings = () => {
                 onChange={handleChange}
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all ${errors.phone ? 'border-red-500' : 'border-gray-200'}`}
                 placeholder="e.g. +91 98765 43210"
-                // required 
               />
                {errors.phone && <p className="text-xs text-red-600">{errors.phone}</p>}
+            </div>
+
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-sm font-medium text-gray-700">Drug License Number</label>
+              <input
+                type="text"
+                name="dl_number"
+                autoComplete="off"
+                value={formData.dl_number || ''}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-[#FFF9F5] focus:ring-2 focus:ring-[#FF9F6A] focus:border-transparent focus:outline-none transition-all"
+                placeholder="e.g. MH-MZ1-123456"
+              />
+              <p className="text-xs text-gray-500">This will be displayed on your invoices.</p>
             </div>
           </div>
         </div>

@@ -44,6 +44,7 @@ export interface Bill {
   status: string;
   created_at: string;
   invoice_number?: string;
+  seller_dl_number?: string;
   bill_items?: BillItem[];
 }
 

@@ -120,12 +120,12 @@ const SalesHistory = () => {
 
       // Header with Shop Details
       if (shopDetails) {
-        centerText(shopDetails.shop_name || 'PharmaOne', 20, 22, true);
+        centerText(shopDetails.shop_name || 'Stocky', 20, 22, true);
         const cityState = [shopDetails.city, shopDetails.state].filter(Boolean).join(', ');
         if (cityState) centerText(cityState, 28, 12);
         if (shopDetails.phone) centerText(`Phone: ${shopDetails.phone}`, 34, 12);
       } else {
-        centerText('PharmaOne', 20, 22, true);
+        centerText('Stocky', 20, 22, true);
       }
 
       centerText('------------------------------------------------', 42, 12);

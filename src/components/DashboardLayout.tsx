@@ -106,7 +106,7 @@ const DashboardLayout = () => {
       )}>
         <div className="h-16 flex items-center px-6 border-b border-gray-100">
           <Pill className="h-8 w-8 text-blue-600 mr-2" />
-          <span className="text-xl font-bold text-gray-900">PharmaOne</span>
+          <span className="text-xl font-bold text-gray-900">Stocky</span>
           <button 
             className="ml-auto md:hidden"
             onClick={() => setIsMobileMenuOpen(false)}

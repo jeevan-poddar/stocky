@@ -7,7 +7,7 @@ const AuthLayout = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center items-center gap-2">
           <Pill className="h-10 w-10 text-blue-600" />
-          <h2 className="text-3xl font-bold text-gray-900">PharmaOne</h2>
+          <h2 className="text-3xl font-bold text-gray-900">Stocky</h2>
         </div>
       </div>
 

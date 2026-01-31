@@ -13,6 +13,7 @@ const Billing = () => {
   const [phone, setPhone] = useState('');
   const [doctorName, setDoctorName] = useState('');
   const [paymentMode, setPaymentMode] = useState('Cash');
+  const [sellerDLNumber, setSellerDLNumber] = useState<string | null>(null);
   const [errors, setErrors] = useState<{customerName?: string, phone?: string}>({});
 
   // Search & Inventory
@@ -47,6 +48,24 @@ const Billing = () => {
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm]);
+
+  // Fetch Seller Profile (DL Number)
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('dl_number')
+          .eq('id', user.id)
+          .single();
+        if (data?.dl_number) {
+          setSellerDLNumber(data.dl_number);
+        }
+      }
+    };
+    fetchProfile();
+  }, []);
 
   // Update Grand Total whenever cart changes
   useEffect(() => {
@@ -150,7 +169,8 @@ const Billing = () => {
         p_total_profit: totalProfit,
         p_payment_mode: paymentMode,
         p_items: cart,
-        p_invoice_number: invoiceNumber
+        p_invoice_number: invoiceNumber,
+        p_seller_dl_number: sellerDLNumber
       });
 
       if (error) throw error;

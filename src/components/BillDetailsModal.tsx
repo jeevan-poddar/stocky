@@ -62,9 +62,14 @@ const BillDetailsModal = ({ isOpen, onClose, billId }: BillDetailsModalProps) =>
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Bill Details</h2>
-              {bill && (
-                <p className="text-sm text-gray-500 font-mono">#{bill.id.slice(0, 8)}</p>
-              )}
+              <div className="flex gap-4 items-center">
+                 {bill && <p className="text-sm text-gray-500 font-mono">#{bill.invoice_number || bill.id.slice(0, 8)}</p>}
+                 {bill?.seller_dl_number && (
+                   <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                     DL No: {bill.seller_dl_number}
+                   </span>
+                 )}
+              </div>
             </div>
           </div>
           <button

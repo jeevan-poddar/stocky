@@ -120,7 +120,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     // Explicit checks:
 
     if (!formData.name.trim()) newErrors.name = "This field is mandatory.";
-    else if (!/^[A-Za-z\s]+$/.test(formData.name)) newErrors.name = "Name can only contain letters."; // Requirement
+    // else if (!/^[A-Za-z\s]+$/.test(formData.name)) newErrors.name = "Name can only contain letters."; // Requirement
 
     if (!formData.composition.trim()) newErrors.composition = "This field is mandatory.";
     
