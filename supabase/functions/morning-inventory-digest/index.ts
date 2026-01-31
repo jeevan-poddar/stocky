@@ -6,7 +6,6 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Utility for URL-safe Base64 encoding
 function base64url(source: Uint8Array | string): string {
     let encoded = typeof source === "string" ? btoa(source) : btoa(String.fromCharCode(...source));
     return encoded.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
@@ -23,109 +22,95 @@ async function getAccessToken(serviceAccount: any) {
         exp: now + 3600,
         scope: "https://www.googleapis.com/auth/firebase.messaging"
     }));
-
     const message = `${header}.${payload}`;
-
-    // Clean the Private Key strictly
-    const rawKey = serviceAccount.private_key
-        .replace(/\\n/g, "\n")
-        .replace("-----BEGIN PRIVATE KEY-----", "")
-        .replace("-----END PRIVATE KEY-----", "")
-        .replace(/\s+/g, "");
-
+    const rawKey = serviceAccount.private_key.replace(/\\n/g, "\n").replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").replace(/\s+/g, "");
     const binaryKey = Uint8Array.from(atob(rawKey), c => c.charCodeAt(0));
-
-    const key = await crypto.subtle.importKey(
-        "pkcs8",
-        binaryKey,
-        { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-        false,
-        ["sign"]
-    );
-
-    const signature = await crypto.subtle.sign(
-        "RSASSA-PKCS1-v1_5",
-        key,
-        new TextEncoder().encode(message)
-    );
-
-    const assertion = `${message}.${base64url(new Uint8Array(signature))}`;
-
-    const res = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-            grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-            assertion
-        })
-    });
-
-    const data = await res.json();
-    if (data.error) throw new Error(`Google Auth: ${data.error_description || data.error}`);
-    return data.access_token;
+    const key = await crypto.subtle.importKey("pkcs8", binaryKey, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+    const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(message));
+    return `${message}.${base64url(new Uint8Array(signature))}`;
 }
 
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
     try {
-        const supabase = createClient(
-            Deno.env.get('SUPABASE_URL')!,
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-        );
+        const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-        // 1. Fetch Medicines (Proven logic)
-        const { data: items } = await supabase.from('medicines').select('*');
-        const thirtyDays = new Date();
-        thirtyDays.setDate(thirtyDays.getDate() + 30);
+        const { data: medicines } = await supabase.from('medicines').select('*');
+        const { data: profiles } = await supabase.from('profiles').select('id, expiry_threshold_days');
 
-        const expiring = (items || []).filter(i => {
-            const d = i?.expiry_date || i?.Expiry_Date || i?.expiryDate;
-            const u = i?.user_id || i?.User_Id;
-            return d && u && new Date(d) <= thirtyDays;
+        if (!medicines || medicines.length === 0) return new Response(JSON.stringify({ success: true, message: "No medicines" }));
+
+        const now = new Date();
+        const expiringByOwner: Record<string, { expired: any[], soon: any[] }> = {};
+
+        medicines.forEach(med => {
+            const userId = med.user_id || med.User_Id || med.userId;
+            const profile = profiles?.find(p => p.id === userId);
+            const threshold = profile?.expiry_threshold_days || 30;
+
+            let rawDate = med.expiry_date || med.Expiry_Date || med.expiryDate;
+            let expiryDate: Date;
+
+            if (typeof rawDate === 'string' && rawDate.includes('/')) {
+                const parts = rawDate.split('/');
+                expiryDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+            } else {
+                expiryDate = new Date(rawDate);
+            }
+
+            // CORRECTED COLUMN NAMES HERE
+            const packs = Number(med.stock_packets || med.Stock_Packets || 0);
+            const loose = Number(med.stock_loose || med.Stock_Loose || 0);
+            const hasStock = packs > 0 || loose > 0;
+
+            const limitDate = new Date();
+            limitDate.setDate(now.getDate() + threshold);
+
+            console.log(`Checking: ${med.name} | Stock: ${packs}p, ${loose}l | Exp: ${expiryDate.toDateString()} | Threshold: ${threshold}`);
+
+            if (hasStock) {
+                if (!expiringByOwner[userId]) expiringByOwner[userId] = { expired: [], soon: [] };
+
+                if (expiryDate < now) {
+                    expiringByOwner[userId].expired.push(med);
+                } else if (expiryDate <= limitDate) {
+                    expiringByOwner[userId].soon.push(med);
+                }
+            }
         });
 
-        if (!expiring.length) return new Response(JSON.stringify({ success: true, count: 0 }));
+        if (Object.keys(expiringByOwner).length === 0) return new Response(JSON.stringify({ success: true, message: "No stock matching criteria" }));
 
-        // 2. Get User Tokens
-        const uids = [...new Set(expiring.map(m => m?.user_id || m?.User_Id))];
-        const { data: tokenRows } = await supabase.from('fcm_tokens').select('token').in('user_id', uids);
+        const serviceAccount = JSON.parse(Deno.env.get('FIREBASE_SERVICE_ACCOUNT_KEY')!);
+        const jwt = await getAccessToken(serviceAccount);
+        const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwt })
+        });
+        const { access_token } = await tokenRes.json();
 
-        // 3. Authenticate and Send
-        const secret = JSON.parse(Deno.env.get('FIREBASE_SERVICE_ACCOUNT_KEY')!);
-        const token = await getAccessToken(secret);
+        for (const [userId, cat] of Object.entries(expiringByOwner)) {
+            const { data: tokens } = await supabase.from('fcm_tokens').select('token').eq('user_id', userId);
+            if (tokens && tokens.length > 0) {
+                let body = "";
+                if (cat.expired.length > 0) body += `${cat.expired.length} expired. `;
+                if (cat.soon.length > 0) body += `${cat.soon.length} expiring soon.`;
 
-        if (tokenRows && tokenRows.length > 0) {
-            for (const t of tokenRows) {
-                if (!t?.token) continue;
-                await fetch(`https://fcm.googleapis.com/v1/projects/${secret.project_id}/messages:send`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        message: {
-                            token: t.token,
-                            notification: {
-                                title: "Stocky: Expiry Alert",
-                                body: `You have ${expiring.length} medicines expiring soon.`
-                            },
-                            data: { url: "/returns" }
-                        }
-                    })
-                });
+                for (const t of tokens) {
+                    await fetch(`https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${access_token}` },
+                        body: JSON.stringify({
+                            message: { token: t.token, notification: { title: "Stocky: Alert", body: body.trim() } }
+                        })
+                    });
+                }
             }
         }
 
-        return new Response(JSON.stringify({ success: true, notified: expiring.length }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-
+        return new Response(JSON.stringify({ success: true }));
     } catch (err) {
-        return new Response(JSON.stringify({ error: err.message }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
     }
 });

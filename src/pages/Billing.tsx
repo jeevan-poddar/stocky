@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Search, Trash2, ShoppingCart, Save, Plus, Loader2 } from 'lucide-react';
+import { Search, Trash2, ShoppingCart, Save, Plus, Loader2, User, Phone, Stethoscope, CreditCard, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Medicine, CartItem } from '../types';
 import { cn } from '../lib/utils';
 import { getNewInvoiceNumber } from '../lib/billUtils';
 import SuccessModal from '../components/SuccessModal';
 import { triggerLowStockAlert } from '../lib/notificationUtils';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 
 const Billing = () => {
   // --- State ---
@@ -228,120 +231,129 @@ const Billing = () => {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-6rem)]">
       {/* Left Column: Product Search & Cart */}
       <div className="lg:col-span-2 flex flex-col gap-6 h-full">
-        {/* Search */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-           {/* Customer Info Section (Moved inside or kept separate? Layout implies Search is top) */}
-           {/* Let's keep search focused here */}
-          <div className="flex flex-col gap-4 mb-4">
+        {/* Customer & Search Card */}
+        <Card className="p-6 space-y-6">
+           {/* Customer Info Section */}
+          <div className="space-y-4">
+               <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                 <User className="h-5 w-5 text-brand-primary-start" />
+                 Customer Details
+               </h3>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <input 
-                      type="text" 
+                    <Input 
+                      icon={User}
                       placeholder="Customer Name" 
                       value={customerName}
                       onChange={(e) => {
                           setCustomerName(e.target.value);
                           if(errors.customerName) setErrors(prev => ({...prev, customerName: ''}));
                       }}
-                      className={cn("w-full p-2 border rounded", errors.customerName ? "border-red-500" : "border-gray-200")}
+                      error={errors.customerName}
                     />
-                    {errors.customerName && <p className="text-red-500 text-xs mt-1">{errors.customerName}</p>}
                   </div>
                   <div>
-                    <input 
-                      type="text" 
+                    <Input 
+                      icon={Phone}
                       placeholder="Phone Number" 
                       value={phone}
                       onChange={(e) => {
                           setPhone(e.target.value);
                           if(errors.phone) setErrors(prev => ({...prev, phone: ''}));
                       }}
-                      className={cn("w-full p-2 border rounded", errors.phone ? "border-red-500" : "border-gray-200")}
+                       error={errors.phone}
                     />
-                     {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                   </div>
                </div>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <input 
-                      type="text" 
+                   <Input 
+                      icon={Stethoscope}
                       placeholder="Doctor Name (Optional)" 
                       value={doctorName}
                       onChange={(e) => setDoctorName(e.target.value)}
-                      className="w-full p-2 border border-gray-200 rounded"
                     />
-                   <select 
-                      value={paymentMode}
-                      onChange={(e) => setPaymentMode(e.target.value)}
-                      className="w-full p-2 border border-gray-200 rounded"
-                   >
-                       <option value="Cash">Cash</option>
-                       <option value="UPI">UPI</option>
-                       <option value="Card">Card</option>
-                   </select>
+                   <div className="relative flex items-center bg-input-bg rounded-2xl">
+                      <div className="pl-4 text-gray-400">
+                        <CreditCard size={20} />
+                      </div>
+                      <select 
+                        value={paymentMode}
+                        onChange={(e) => setPaymentMode(e.target.value)}
+                        className="w-full bg-transparent border-none p-4 text-gray-700 focus:ring-0 appearance-none"
+                      >
+                         <option value="Cash">Cash</option>
+                         <option value="UPI">UPI</option>
+                         <option value="Card">Card</option>
+                      </select>
+                   </div>
                </div>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search medicines..."
-              className="w-full pl-10 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {isSearching && (
-              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-blue-500" />
-            )}
+          <div className="relative pt-4 border-t border-gray-100">
+             <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4">
+                 <Search className="h-5 w-5 text-brand-primary-start" />
+                 Search Medicine
+             </h3>
+             <Input
+               icon={Search}
+               placeholder="Search medicines by name or composition (e.g. Dolo)..."
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+               className="bg-white border-2 border-brand-bg focus:border-brand-primary-start/30"
+             />
+             {isSearching && (
+               <Loader2 className="absolute right-4 top-[4.5rem] h-5 w-5 animate-spin text-brand-primary-start" />
+             )}
           </div>
 
           {/* Search Results */}
           {searchResults.length > 0 && (
-                <div className="overflow-x-auto mt-4 border rounded-lg max-h-60 overflow-y-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50 sticky top-0">
+                <div className="overflow-x-auto mt-2 border border-gray-100 rounded-2xl max-h-60 overflow-y-auto shadow-sm">
+                  <table className="min-w-full divide-y divide-gray-100">
+                    <thead className="bg-gray-50/80 sticky top-0 backdrop-blur-sm">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medicine</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MRP</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Medicine</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Batch</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Expiry</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">MRP</th>
                         <th className="px-6 py-3 text-right">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-gray-50">
                       {searchResults.map((med) => {
                          const totalStock = getTotalStock(med);
                          const isExpired = new Date(med.expiry_date) < new Date();
                          
                          return (
-                          <tr key={med.id} className={cn("hover:bg-gray-50", isExpired && "bg-red-50")}>
+                          <tr key={med.id} className={cn("hover:bg-brand-bg transition-colors", isExpired && "bg-red-50 hover:bg-red-100")}>
                             <td className="px-6 py-4">
-                              <div className="text-sm font-medium text-gray-900">{med.name}</div>
+                              <div className="text-sm font-bold text-gray-800">{med.name}</div>
                               <div className="text-xs text-gray-500">{med.composition}</div>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500">{med.batch_no}</td>
                             <td className="px-6 py-4">
                                <span className={cn(
                                  "text-sm", 
-                                 isExpired ? "text-red-600 font-medium" : "text-gray-900"
+                                 isExpired ? "text-red-600 font-bold flex items-center gap-1" : "text-gray-900"
                                )}>
                                  {med.expiry_date}
+                                 {isExpired && <AlertCircle className="h-3 w-3" />}
                                </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-900">
                               {med.stock_packets} Box + {med.stock_loose} Loose
-                              <div className="text-xs text-gray-400">Total: {totalStock} units</div>
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-900">₹{med.mrp}</td>
+                            <td className="px-6 py-4 text-sm font-semibold text-gray-900">₹{med.mrp}</td>
                             <td className="px-6 py-4 text-right">
-                              <button 
+                              <Button 
+                                size="sm"
                                 onClick={() => addToCart(med)}
                                 disabled={totalStock <= 0 || isExpired}
-                                className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                                className="h-8 rounded-full px-4"
                               >
                                 <Plus className="h-3 w-3 mr-1" /> Add
-                              </button>
+                              </Button>
                             </td>
                           </tr>
                          );
@@ -350,73 +362,85 @@ const Billing = () => {
                   </table>
                 </div>
            )}
-        </div>
-
-        {/* Message Banner */}
-        {message && (
-             <div className={cn("p-4 rounded-lg", message.type === 'error' ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700")}>
-                 {message.text}
-             </div>
-        )}
+           
+           {/* Message Banner */}
+            {message && (
+                 <div className={cn("p-4 rounded-xl flex items-center gap-3", message.type === 'error' ? "bg-red-50 text-red-700 border border-red-100" : "bg-green-50 text-green-700 border border-green-100")}>
+                     <div className={cn("h-2 w-2 rounded-full", message.type === 'error' ? "bg-red-500" : "bg-green-500")} />
+                     {message.text}
+                 </div>
+            )}
+        </Card>
 
       </div>
 
       {/* 3. The Cart (Right - 1col) */}
       <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col h-[calc(100vh-140px)]">
-            <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl flex justify-between items-center">
-               <h2 className="font-semibold text-gray-800 flex items-center">
-                 <ShoppingCart className="h-5 w-5 mr-2" /> Current Bill
+          <Card className="flex flex-col h-[calc(100vh-140px)] p-0 overflow-hidden border-none shadow-soft">
+            <div className="p-5 border-b border-gray-100 bg-white flex justify-between items-center">
+               <h2 className="font-bold text-gray-800 flex items-center text-lg">
+                 <ShoppingCart className="h-5 w-5 mr-2 text-brand-primary-start" /> Current Bill
                </h2>
-               <span className="text-sm text-gray-500">{cart.length} Items</span>
+               <span className="text-xs font-semibold bg-brand-bg text-gray-600 px-3 py-1 rounded-full">{cart.length} Items</span>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-brand-bg/30">
               {cart.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                  <ShoppingCart className="h-12 w-12 mb-2 opacity-20" />
-                  <p>Cart is empty</p>
+                  <div className="bg-gray-100 p-6 rounded-full mb-4">
+                     <ShoppingCart className="h-8 w-8 text-gray-300" />
+                  </div>
+                  <p className="font-medium">Cart is empty</p>
+                  <p className="text-sm opacity-70 mt-1">Search medicine to add</p>
                 </div>
               ) : (
                 cart.map((item) => (
-                  <div key={item.id} className="flex flex-col p-3 border border-gray-100 rounded-lg bg-gray-50/50">
-                    <div className="flex justify-between items-start mb-2">
-                       <div>
-                         <h4 className="font-medium text-gray-900 text-sm">{item.name}</h4>
-                         <p className="text-xs text-gray-500">Batch: {item.batch_no} | Exp: {item.expiry_date}</p>
+                  <div key={item.id} className="flex flex-col p-4 border border-white bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-3">
+                       <div className="flex items-center gap-3">
+                         <div className="h-10 w-10 rounded-xl bg-brand-primary-start/10 text-brand-primary-start flex items-center justify-center font-bold">
+                            {item.name.charAt(0)}
+                         </div>
+                         <div>
+                           <h4 className="font-bold text-gray-900 text-sm line-clamp-1">{item.name}</h4>
+                           <p className="text-[10px] text-gray-500 uppercase tracking-wide">Batch: {item.batch_no}</p>
+                         </div>
                        </div>
                        <button 
                          onClick={() => removeFromCart(item.id)}
-                         className="text-red-400 hover:text-red-600 p-1"
+                         className="text-gray-400 hover:text-red-500 p-1 transition-colors"
                        >
                          <Trash2 className="h-4 w-4" />
                        </button>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-3 items-end">
+                    <div className="grid grid-cols-2 gap-3 items-end bg-gray-50 p-3 rounded-xl">
                        <div>
-                         <label className="text-xs text-gray-500 mb-1 block">Qty (Units)</label>
+                         <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Qty</label>
                          <input 
                            type="number" 
                            min="1"
                            value={item.cartQuantity}
                            onChange={(e) => updateCartItem(item.id, 'cartQuantity', parseInt(e.target.value) || 0)}
-                           className="w-full text-sm border-gray-300 rounded-md py-1 px-2 focus:ring-blue-500 focus:border-blue-500"
+                           className="w-full text-sm font-semibold bg-white border-none rounded-lg py-1 px-2 focus:ring-2 focus:ring-brand-primary-start/20 shadow-sm"
                          />
                        </div>
                        <div>
-                         <label className="text-xs text-gray-500 mb-1 block">Price/Unit</label>
+                         <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Price</label>
                          <input 
                            type="number" 
                            step="0.01"
                            value={item.sellingPrice}
                            onChange={(e) => updateCartItem(item.id, 'sellingPrice', parseFloat(e.target.value) || 0)}
-                           className="w-full text-sm border-gray-300 rounded-md py-1 px-2 focus:ring-blue-500 focus:border-blue-500"
+                           className="w-full text-sm font-semibold bg-white border-none rounded-lg py-1 px-2 focus:ring-2 focus:ring-brand-primary-start/20 shadow-sm"
                          />
                        </div>
                     </div>
-                    <div className="mt-2 text-right text-sm font-semibold text-gray-900">
-                      ₹{(item.cartQuantity * item.sellingPrice).toFixed(2)}
+                    <div className="mt-3 flex justify-between items-center px-1">
+                      <span className="text-xs text-gray-500">Subtotal</span>
+                      <span className="text-sm font-bold text-gray-900">
+                        ₹{(item.cartQuantity * item.sellingPrice).toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 ))
@@ -424,20 +448,24 @@ const Billing = () => {
             </div>
 
             {/* Footer Totals */}
-            <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl space-y-4">
-               <div className="flex justify-between items-center">
-                 <span className="text-gray-600">Total Items</span>
-                 <span className="font-medium">{cart.length}</span>
-               </div>
-               <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                 <span className="text-lg font-bold text-gray-800">Grand Total</span>
-                 <span className="text-2xl font-bold text-blue-600">₹{grandTotal.toFixed(2)}</span>
+            <div className="p-6 border-t border-gray-100 bg-white space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
+               <div className="space-y-2">
+                 <div className="flex justify-between items-center text-sm">
+                   <span className="text-gray-500">Total Items</span>
+                   <span className="font-bold text-gray-800">{cart.length}</span>
+                 </div>
+                 <div className="flex justify-between items-center pt-3 border-t border-dashed border-gray-200">
+                   <span className="text-lg font-bold text-gray-800">Grand Total</span>
+                   <span className="text-2xl font-black bg-gradient-to-r from-brand-primary-start to-brand-primary-end bg-clip-text text-transparent">
+                     ₹{grandTotal.toFixed(2)}
+                   </span>
+                 </div>
                </div>
                
-               <button 
+               <Button 
                  onClick={handleCheckout}
                  disabled={cart.length === 0 || isSubmitting}
-                 className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed transition-all"
+                 className="w-full h-12 text-base shadow-lg hover:shadow-xl hover:translate-y-[-1px] transition-all"
                >
                  {isSubmitting ? (
                    <>
@@ -450,9 +478,9 @@ const Billing = () => {
                     Complete Bill
                    </>
                  )}
-               </button>
+               </Button>
             </div>
-          </div>
+          </Card>
       </div>
        <SuccessModal
          isOpen={successModal.isOpen}

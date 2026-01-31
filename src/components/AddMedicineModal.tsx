@@ -1,8 +1,25 @@
 import { useState, useEffect } from 'react';
-import { X, Loader2, Edit2 } from 'lucide-react';
+import { 
+  X, 
+  Loader2, 
+  Edit2, 
+  Pill, 
+  FlaskConical, 
+  Building2, 
+  Truck, 
+  Barcode, 
+  MapPin, 
+  Calendar, 
+  Layers, 
+  Box, 
+  IndianRupee,
+  Package
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { MedicineInsert, Medicine } from '../types';
 import { triggerLowStockAlert } from '../lib/notificationUtils';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
 
 interface AddMedicineModalProps {
   isOpen: boolean;
@@ -22,20 +39,16 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
   lowStockThreshold = 10
 }) => {
   const [loading, setLoading] = useState(false);
-  // Replaced single error string with error object
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
   
-  // Initialize isEditing based on whether we are viewing an existing item or adding a new one
-  // If we are validating data (isViewMode=true), we start in non-edit mode (false)
-  // If we are adding new (initialData=null), we start in edit mode (true)
   const [isEditing, setIsEditing] = useState(!isViewMode);
 
   const initialFormData: MedicineInsert = {
     name: '',
     composition: '',
     batch_no: '',
-    quantity_type: 'Strip', // Default default
+    quantity_type: 'Strip',
     units_per_packet: 10,
     stock_packets: 0,
     stock_loose: 0,
@@ -52,13 +65,11 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
 
   useEffect(() => {
     if (initialData) {
-      // Remove id, created_at, user_id from initialData to match MedicineInsert
       const { id, created_at, ...rest } = initialData;
       setFormData(rest as MedicineInsert);
     } else {
       setFormData(initialFormData);
     }
-    // Sync editing state with view mode prop when modal opens/data changes
     setIsEditing(!isViewMode);
   }, [initialData, isViewMode, isOpen]);
 
@@ -66,26 +77,23 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     if (!isEditing) return;
     const { name, value } = e.target;
 
-    // Handle number inputs
     if (['units_per_packet', 'stock_packets', 'stock_loose', 'mrp', 'purchase_price'].includes(name)) {
       setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
 
-    // Clear error for this field
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
 
-    // Special logic for quantity_type
     if (name === 'quantity_type') {
       if (value === 'Unit') {
         setFormData(prev => ({ 
           ...prev, 
           quantity_type: 'Unit', 
           units_per_packet: 1,
-          stock_loose: 0 // Auto-set loose quantity to 0
+          stock_loose: 0 
         }));
       } else {
         setFormData(prev => ({ ...prev, quantity_type: 'Strip' }));
@@ -99,12 +107,10 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
 
   const handleCancelEdit = () => {
     if (initialData) {
-      // If editing existing item, revert to view mode and reset data
       setIsEditing(false);
       const { id, created_at, ...rest } = initialData;
       setFormData(rest as MedicineInsert);
     } else {
-      // If adding new, close modal (standard cancel behavior)
       onClose();
     }
   };
@@ -120,19 +126,12 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     const newErrors: {[key: string]: string} = {};
     const today = new Date().toISOString().split('T')[0];
 
-    // --- Validation ---
-    
-    // Name: No numbers or symbols allowed
-    if (!formData.name.trim()) {
-        newErrors.name = "This field is required";
-    }
-
+    if (!formData.name.trim()) newErrors.name = "This field is required";
     if (!formData.composition.trim()) newErrors.composition = "This field is required";
     if (!formData.purchased_from.trim()) newErrors.purchased_from = "This field is required";
     if (!formData.company.trim()) newErrors.company = "This field is required";
     if (!formData.batch_no.trim()) newErrors.batch_no = "This field is required";
     
-    // Date: Mfg date not in future
     if (!formData.manufacture_date) {
         newErrors.manufacture_date = "This field is required";
     } else if (formData.manufacture_date > today) {
@@ -141,7 +140,6 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
 
     if (!formData.expiry_date) newErrors.expiry_date = "This field is required";
 
-    // Stock & Price (treating 0 as valid but empty string should be caught if input type=text, but type=number handles it)
     if (!formData.mrp) newErrors.mrp = "This field is required";
     if (!formData.purchase_price) newErrors.purchase_price = "This field is required";
     
@@ -152,7 +150,6 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     }
 
     try {
-      // 2. GET THE USER (Crucial Step)
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) throw new Error("You must be logged in to modify stock.");
@@ -160,7 +157,6 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
       let error;
 
       if (initialData?.id) {
-        // UPDATE Existing Medicine
         const { error: updateError } = await supabase
           .from('medicines')
           .update({
@@ -170,7 +166,6 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
           .eq('id', initialData.id);
         error = updateError;
       } else {
-        // INSERT New Medicine
         const { error: insertError } = await supabase
           .from('medicines')
           .insert([{
@@ -184,8 +179,6 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
 
       onSuccess();
       
-      // --- Threshold Check (Instant Notification) ---
-      // If stock is below threshold (and we have a name), trigger alert
       if (formData.stock_packets <= lowStockThreshold) {
           triggerLowStockAlert(formData.name, formData.stock_packets);
       }
@@ -205,280 +198,270 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         
-        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose}></div>
+        <div className="fixed inset-0 transition-opacity bg-brand-primary-start/10 backdrop-blur-sm" onClick={onClose}></div>
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
-          <div className="px-4 pt-5 pb-4 bg-white sm:p-6 sm:pb-4">
-            <div className="flex justify-between items-center pb-3 border-b border-gray-100 mb-4">
+        <div className="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-soft transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full border border-white/50">
+          <div className="px-6 py-6 bg-white sm:p-8">
+            <div className="flex justify-between items-center pb-6 border-b border-gray-100 mb-6">
               <div className="flex items-center gap-3">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">
-                  {/* Title Logic: 
-                      - If adding new: 'Add New Medicine'
-                      - If viewing (not editing): 'Medicine Details'
-                      - If editing existing: 'Edit Medicine' 
-                  */}
+                <h3 className="text-2xl font-bold text-gray-800">
+                  {/* Title Logic */}
                   {!initialData ? 'Add New Medicine' : isEditing ? 'Edit Medicine' : 'Medicine Details'}
                 </h3>
                 
-                {/* Edit Button: Only show if we have initialData (existing item) and are NOT currently editing */}
                 {initialData && !isEditing && (
-                  <button 
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
                     onClick={handleToggleEdit}
-                    className="p-1 text-blue-600 hover:bg-blue-50 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100"
                     title="Edit Medicine"
                   >
                     <Edit2 className="h-4 w-4" />
-                  </button>
+                  </Button>
                 )}
               </div>
               
-              <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-500 transition-colors">
                 <X className="h-6 w-6" />
               </button>
             </div>
 
             {globalError && (
-              <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-md">
+              <div className="mb-6 p-4 bg-red-50 text-red-700 text-sm rounded-xl border border-red-100 flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-red-500" />
                 {globalError}
               </div>
             )}
 
-            <form onSubmit={handleSaveMedicine} className="space-y-4">
+            <form onSubmit={handleSaveMedicine} className="space-y-6">
               {/* Row 1: Basic Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="sm:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700">Name</label>
-                  <input 
-                    type="text" 
+                  <Input 
+                    label="Name"
+                    icon={Pill}
                     name="name" 
-                    // removed required 
                     autoComplete="off"
                     value={formData.name} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.name ? 'border-red-500' : 'border-gray-300'}`} 
+                    error={errors.name}
+                    placeholder="Medicine Name"
                   />
-                  {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
                 </div>
                 <div className="sm:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700">Composition</label>
-                  <input 
-                    type="text" 
+                  <Input 
+                    label="Composition"
+                    icon={FlaskConical}
                     name="composition" 
-                    // removed required 
                     autoComplete="off"
                     value={formData.composition} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.composition ? 'border-red-500' : 'border-gray-300'}`} 
+                    error={errors.composition}
+                    placeholder="Generic Name / Salt"
                   />
-                  {errors.composition && <p className="mt-1 text-xs text-red-600">{errors.composition}</p>}
                 </div>
               </div>
 
-               {/* Row 2: Supply Chain (New) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               {/* Row 2: Supply Chain */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="sm:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700">Purchased From (Wholesaler)</label>
-                  <input 
-                    type="text" 
+                  <Input 
+                    label="Purchased From"
+                    icon={Truck}
                     name="purchased_from" 
-                    // required 
                     autoComplete="off"
                     value={formData.purchased_from} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.purchased_from ? 'border-red-500' : 'border-gray-300'}`}
-                    placeholder="e.g. Health Distributors"
+                    error={errors.purchased_from}
+                    placeholder="Wholesaler Name"
                   />
-                  {errors.purchased_from && <p className="mt-1 text-xs text-red-600">{errors.purchased_from}</p>}
                 </div>
                 <div className="sm:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700">Company (Manufacturer)</label>
-                  <input 
-                    type="text" 
+                  <Input 
+                    label="Company"
+                    icon={Building2}
                     name="company" 
-                    // required 
                     autoComplete="off"
                     value={formData.company} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.company ? 'border-red-500' : 'border-gray-300'}`}
-                    placeholder="e.g. Sun Pharma"
+                    error={errors.company}
+                    placeholder="Manufacturer"
                   />
-                  {errors.company && <p className="mt-1 text-xs text-red-600">{errors.company}</p>}
                 </div>
               </div>
 
               {/* Row 3: Batch & Location */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                  <div className="sm:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700">Batch No</label>
-                  <input 
-                    type="text" 
-                    name="batch_no" 
-                    // required 
+                  <Input
+                    label="Batch No"
+                    icon={Barcode}
+                    name="batch_no"
                     autoComplete="off"
-                    value={formData.batch_no} 
-                    onChange={handleChange} 
+                    value={formData.batch_no}
+                    onChange={handleChange}
                     disabled={!isEditing}
-                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.batch_no ? 'border-red-500' : 'border-gray-300'}`} 
+                    error={errors.batch_no}
+                    placeholder="Batch Number"
                   />
-                  {errors.batch_no && <p className="mt-1 text-xs text-red-600">{errors.batch_no}</p>}
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700">Location / Rack</label>
-                  <input 
-                    type="text" 
+                  <Input 
+                    label="Location / Rack"
+                    icon={MapPin}
                     name="location" 
                     value={formData.location} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500"
+                    placeholder="Shelf Location"
                   />
                 </div>
               </div>
 
               {/* Row 4: Dates */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Mfg Date</label>
-                  <input 
-                    type="date" 
-                    name="manufacture_date" 
-                    // required 
-                    value={formData.manufacture_date} 
-                    onChange={handleChange} 
+                  <Input
+                    label="Mfg Date"
+                    type="date"
+                    icon={Calendar}
+                    name="manufacture_date"
+                    value={formData.manufacture_date}
+                    onChange={handleChange}
                     disabled={!isEditing}
-                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.manufacture_date ? 'border-red-500' : 'border-gray-300'}`} 
+                    error={errors.manufacture_date}
                   />
-                  {errors.manufacture_date && <p className="mt-1 text-xs text-red-600">{errors.manufacture_date}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Expiry Date</label>
-                  <input 
-                    type="date" 
-                    name="expiry_date" 
-                    // required 
-                    value={formData.expiry_date} 
-                    onChange={handleChange} 
+                  <Input
+                    label="Expiry Date"
+                    type="date"
+                    icon={Calendar}
+                    name="expiry_date"
+                    value={formData.expiry_date}
+                    onChange={handleChange}
                     disabled={!isEditing}
-                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.expiry_date ? 'border-red-500' : 'border-gray-300'}`} 
+                    error={errors.expiry_date}
                   />
-                  {errors.expiry_date && <p className="mt-1 text-xs text-red-600">{errors.expiry_date}</p>}
                 </div>
               </div>
 
                {/* Row 5: Type & Logic */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Quantity Type</label>
-                  <select 
-                    name="quantity_type" 
-                    value={formData.quantity_type} 
-                    onChange={handleChange} 
-                    disabled={!isEditing}
-                    className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500"
-                  >
-                    <option value="Strip">Strip</option>
-                    <option value="Unit">Unit</option>
-                  </select>
+                  <label className="block text-sm font-medium text-gray-700 ml-1 mb-2">Quantity Type</label>
+                  <div className="relative flex items-center bg-input-bg rounded-2xl">
+                    <div className="pl-4 text-gray-400">
+                      <Layers size={20} />
+                    </div>
+                    <select 
+                      name="quantity_type" 
+                      value={formData.quantity_type} 
+                      onChange={handleChange} 
+                      disabled={!isEditing}
+                      className="w-full bg-transparent border-none p-4 text-gray-700 focus:ring-0 appearance-none"
+                    >
+                      <option value="Strip">Strip</option>
+                      <option value="Unit">Unit</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Units per Packet</label>
-                  <input 
-                    type="number" 
-                    name="units_per_packet" 
-                    value={formData.units_per_packet} 
-                    onChange={handleChange} 
+                  <Input
+                    label="Units per Packet"
+                    type="number"
+                    icon={Package}
+                    name="units_per_packet"
+                    value={formData.units_per_packet}
+                    onChange={handleChange}
                     disabled={formData.quantity_type === 'Unit' || !isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:text-gray-500"
                   />
                 </div>
               </div>
 
                {/* Row 6: Stock */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Stock (Packets/Boxes)</label>
-                  <input 
-                    type="number" 
-                    name="stock_packets" 
-                    // required 
+                  <Input
+                    label="Stock (Packets/Boxes)"
+                    type="number"
+                    icon={Box}
+                    name="stock_packets"
                     autoComplete="off"
-                    value={formData.stock_packets} 
-                    onChange={handleChange} 
+                    value={formData.stock_packets}
+                    onChange={handleChange}
                     disabled={!isEditing}
-                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.stock_packets ? 'border-red-500' : 'border-gray-300'}`} 
+                    error={errors.stock_packets}
                   />
-                  {errors.stock_packets && <p className="mt-1 text-xs text-red-600">{errors.stock_packets}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Stock (Loose {formData.quantity_type}s)</label>
-                  <input 
-                    type="number" 
-                    name="stock_loose" 
-                    value={formData.stock_loose} 
-                    onChange={handleChange} 
+                   <Input
+                    label={`Stock (Loose ${formData.quantity_type}s)`}
+                    type="number"
+                    icon={Pill}
+                    name="stock_loose"
+                    value={formData.stock_loose}
+                    onChange={handleChange}
                     disabled={formData.quantity_type === 'Unit' || !isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-100 disabled:text-gray-500" 
                   />
                 </div>
               </div>
 
               {/* Row 7: Price */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                  <div>
-                  <label className="block text-sm font-medium text-gray-700">MRP</label>
-                  <div className="mt-1 relative rounded-md shadow-sm">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className="text-gray-500 sm:text-sm">₹</span>
-                    </div>
-                    <input 
-                      type="number" 
-                      step="0.01" 
-                      name="mrp" 
-                      // required 
-                      autoComplete="off"
-                      value={formData.mrp} 
-                      onChange={handleChange} 
-                      disabled={!isEditing}
-                      className={`focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 px-3 py-2 sm:text-sm border rounded-md disabled:bg-gray-50 disabled:text-gray-500 ${errors.mrp ? 'border-red-500' : 'border-gray-300'}`}
-                    />
-                  </div>
-                  {errors.mrp && <p className="mt-1 text-xs text-red-600">{errors.mrp}</p>}
+                  <Input
+                    label="MRP"
+                    type="number"
+                    step="0.01"
+                    icon={IndianRupee}
+                    name="mrp"
+                    autoComplete="off"
+                    value={formData.mrp}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    error={errors.mrp}
+                  />
                 </div>
                  <div>
-                  <label className="block text-sm font-medium text-gray-700">Purchase Price</label>
-                  <div className="mt-1 relative rounded-md shadow-sm">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className="text-gray-500 sm:text-sm">₹</span>
-                    </div>
-                    <input 
-                      type="number" 
-                      step="0.01" 
-                      name="purchase_price" 
-                      // required 
-                      autoComplete="off"
-                      value={formData.purchase_price} 
-                      onChange={handleChange} 
-                      disabled={!isEditing}
-                      className={`focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 px-3 py-2 sm:text-sm border rounded-md disabled:bg-gray-50 disabled:text-gray-500 ${errors.purchase_price ? 'border-red-500' : 'border-gray-300'}`}
-                    />
-                  </div>
-                  {errors.purchase_price && <p className="mt-1 text-xs text-red-600">{errors.purchase_price}</p>}
+                  <Input
+                    label="Purchase Price"
+                    type="number"
+                    step="0.01"
+                    icon={IndianRupee}
+                    name="purchase_price"
+                    autoComplete="off"
+                    value={formData.purchase_price}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    error={errors.purchase_price}
+                  />
                 </div>
               </div>
 
-              <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+              <div className="mt-8 pt-6 border-t border-gray-100 flex gap-4 justify-end">
                 {isEditing ? (
                   <>
-                    <button
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleCancelEdit}
+                      className="w-full sm:w-auto"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
                       type="submit"
+                      variant="secondary" // Mint Green for Save
                       disabled={loading}
-                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:col-start-2 sm:text-sm disabled:opacity-50"
+                      className="w-full sm:w-auto"
                     >
                       {loading ? (
                         <>
@@ -486,23 +469,17 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                           Saving...
                         </>
                       ) : (initialData ? 'Save Changes' : 'Save Medicine')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCancelEdit}
-                      className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:col-start-1 sm:text-sm"
-                    >
-                      Cancel
-                    </button>
+                    </Button>
                   </>
                 ) : (
-                   <button
+                   <Button
                     type="button"
+                    variant="primary"
                     onClick={onClose}
-                    className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:col-start-1 sm:col-end-3 sm:text-sm"
+                    className="w-full sm:w-auto"
                   >
                     Close
-                  </button>
+                  </Button>
                 )}
               </div>
             </form>

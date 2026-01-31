@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search, Eye, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Search, Trash2, Package, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Medicine } from '../types';
 import AddMedicineModal from '../components/AddMedicineModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import SuccessModal from '../components/SuccessModal';
 import { cn } from '../lib/utils';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 
 const Inventory = () => {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -67,7 +70,8 @@ const Inventory = () => {
     }
   };
 
-  const handleDeleteClick = (id: string) => {
+  const handleDeleteClick = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setItemToDelete(id);
     setIsDeleteModalOpen(true);
   };
@@ -118,9 +122,9 @@ const Inventory = () => {
     const diffTime = expiry.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays < 0) return { color: 'text-red-600 bg-red-50', text: 'Expired' };
-    if (diffDays <= expiryThreshold) return { color: 'text-orange-600 bg-orange-50', text: 'Expiring Soon' };
-    return { color: 'text-green-600 bg-green-50', text: 'Valid' };
+    if (diffDays < 0) return { color: 'text-red-600 bg-red-50 ring-red-500/10', text: 'Expired', badgeColor: 'bg-red-100' };
+    if (diffDays <= expiryThreshold) return { color: 'text-orange-600 bg-orange-50 ring-orange-500/10', text: 'Expiring Soon', badgeColor: 'bg-orange-100' };
+    return { color: 'text-green-600 bg-green-50 ring-green-500/10', text: 'Valid', badgeColor: 'bg-green-100' };
   };
 
   const filteredMedicines = medicines.filter(med => {
@@ -136,153 +140,137 @@ const Inventory = () => {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pb-24">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inventory</h1>
-          <p className="text-sm text-gray-500">Manage your medicine stock</p>
+          <h1 className="text-3xl font-bold text-gray-800">Inventory</h1>
+          <p className="text-gray-500 mt-1">Manage your medicine stock</p>
         </div>
-        <button 
-          onClick={handleAddNew}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
+        <Button onClick={handleAddNew} className="hidden sm:flex">
           <Plus className="h-5 w-5 mr-2" />
           Add Medicine
-        </button>
+        </Button>
       </div>
 
       {/* Search Bar & Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
+      <div className="flex flex-col sm:flex-row gap-4 items-center">
+        <div className="w-full sm:flex-1 sm:max-w-md">
+          <Input 
+            icon={Search}
             placeholder="Search by name or composition..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="bg-white"
           />
         </div>
         
-        <label className="flex items-center gap-2 cursor-pointer select-none">
+        <label className="flex items-center gap-2 cursor-pointer select-none bg-white px-4 py-3 rounded-2xl shadow-sm border border-gray-100">
           <input 
             type="checkbox"
             checked={hideOutOfStock}
             onChange={(e) => setHideOutOfStock(e.target.checked)}
-            className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+            className="w-4 h-4 text-brand-primary-start rounded border-gray-300 focus:ring-brand-primary-start"
           />
           <span className="text-sm font-medium text-gray-700">Hide Out of Stock</span>
         </label>
       </div>
 
-      {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Medicine Name
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Batch / HSN
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Expiry Date
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Stock Level
-                </th>
-                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  MRP
-                </th>
-                <th scope="col" className="relative px-6 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
-                    Loading inventory...
-                  </td>
-                </tr>
-              ) : filteredMedicines.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
-                    No medicines found.
-                  </td>
-                </tr>
-              ) : (
-                filteredMedicines.map((med) => {
-                  const expiryStatus = getExpiryStatus(med.expiry_date);
-                  const isLowStock = med.stock_packets <= lowStockThreshold;
-                  
-                  return (
-                    <tr 
-                      key={med.id} 
-                      className={cn(
-                        "transition-colors cursor-pointer",
-                        isLowStock ? "bg-amber-50 hover:bg-amber-100" : "hover:bg-gray-50"
-                      )}
-                      onClick={() => handleView(med)}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{med.name}</div>
-                        <div className="text-xs text-gray-500">{med.composition}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{med.batch_no}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={cn(
-                          "px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full gap-1 items-center",
-                          expiryStatus.color
-                        )}>
-                          {med.expiry_date}
-                          {expiryStatus.text === 'Expiring Soon' && <AlertCircle className="h-3 w-3" />}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                         {med.stock_packets} {med.quantity_type === 'Strip' ? 'Boxes' : 'Units'} + {med.stock_loose} Loose
-                         {isLowStock && (
-                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                              Low Stock
-                            </span>
-                         )}
-                      </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ₹{med.mrp.toFixed(2)} / {med.quantity_type}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleView(med);
-                          }}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteClick(med.id);
-                          }}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+      {/* Grid */}
+      {loading ? (
+        <div className="text-center py-20">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand-primary-start mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading inventory...</p>
         </div>
+      ) : filteredMedicines.length === 0 ? (
+        <div className="text-center py-20 bg-white rounded-3xl shadow-sm border border-dashed border-gray-200">
+          <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 font-medium">No medicines found.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredMedicines.map((med) => {
+            const expiryStatus = getExpiryStatus(med.expiry_date);
+            const isLowStock = med.stock_packets <= lowStockThreshold;
+            
+            return (
+              <Card 
+                key={med.id} 
+                className={cn(
+                  "p-5 relative group cursor-pointer hover:-translate-y-1 transition-all duration-300 border border-transparent hover:border-brand-primary-start/10",
+                  isLowStock && "ring-2 ring-amber-100 bg-amber-50/30"
+                )}
+                onClick={() => handleView(med)}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-2xl bg-brand-primary-start/10 text-brand-primary-start flex items-center justify-center font-bold text-xl">
+                      {med.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-800 line-clamp-1" title={med.name}>{med.name}</h3>
+                      <p className="text-xs text-gray-500 line-clamp-1" title={med.composition}>{med.composition}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                     {/* Actions (visible on hover or always on mobile) */}
+                     <button 
+                        onClick={(e) => handleDeleteClick(med.id, e)}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm bg-brand-bg/50 p-3 rounded-xl">
+                    <span className="text-gray-500 flex items-center gap-1.5">
+                      <Package className="h-4 w-4 text-brand-primary-start" />
+                      Stock
+                    </span>
+                    <span className={cn("font-bold", isLowStock ? "text-amber-600" : "text-gray-800")}>
+                      {med.stock_packets} <span className="text-xs font-normal text-gray-500">Box</span>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm bg-brand-bg/50 p-3 rounded-xl">
+                    <span className="text-gray-500 flex items-center gap-1.5">
+                      <Calendar className="h-4 w-4 text-brand-primary-start" />
+                      Expiry
+                    </span>
+                    <span className={cn("font-medium text-xs px-2 py-0.5 rounded-full", expiryStatus.badgeColor, expiryStatus.color.split(' ')[0])}>
+                      {med.expiry_date}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                   <div>
+                     <p className="text-xs text-gray-400">MRP</p>
+                     <p className="font-bold text-gray-800">₹{med.mrp.toFixed(2)}</p>
+                   </div>
+                   <Button size="sm" variant="ghost" className="text-brand-primary-start bg-brand-primary-start/5 hover:bg-brand-primary-start/10 h-8 px-4 text-xs rounded-lg">
+                      View
+                   </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Floating Add Button (Mobile) */}
+      <div className="fixed bottom-6 inset-x-0 flex justify-center sm:hidden z-30 pointer-events-none">
+        <Button 
+          onClick={handleAddNew} 
+          className="shadow-xl px-8 pointer-events-auto"
+          size="lg"
+        >
+          <Plus className="h-5 w-5 mr-2" />
+          Add New Medicine
+        </Button>
       </div>
 
       <AddMedicineModal 

@@ -12,6 +12,8 @@ import { supabase } from '../lib/supabase';
 import { type Bill, type Medicine } from '../types';
 import BillDetailsModal from '../components/BillDetailsModal';
 import LowStockModal from '../components/LowStockModal';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -66,7 +68,7 @@ const Dashboard = () => {
         // 3. Fetch recent 5 bills
         supabase
           .from('bills')
-          .select('*')
+          .select('*, bill_items(*)') // Also fetch items if needed, but select * is fine
           .order('created_at', { ascending: false })
           .limit(5)
       ]);
@@ -90,7 +92,6 @@ const Dashboard = () => {
       const expiryDateLimit = addDays(new Date(), threshold);
       
       // Expiring Soon: Expiring within threshold AND In Stock (> 0)
-      // Also ensure we don't count already expired items as "Expiring Soon" (optional but cleaner)
       const expiringSoon = allMedicines.filter(m => {
         const expDate = new Date(m.expiry_date);
         return expDate <= expiryDateLimit && 
@@ -123,22 +124,6 @@ const Dashboard = () => {
     setIsBillModalOpen(true);
   };
 
-  const StatCard = ({ title, value, subtext, icon: Icon, colorClass, bgClass, onClick, cursorClass }: any) => (
-    <div 
-      onClick={onClick}
-      className={`bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between ${cursorClass || ''} transition-shadow hover:shadow-md`}
-    >
-      <div>
-        <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
-        <h3 className="text-2xl font-bold text-gray-900">{value}</h3>
-        {subtext && <p className="text-xs text-gray-400 mt-1">{subtext}</p>}
-      </div>
-      <div className={`p-3 rounded-lg ${bgClass}`}>
-        <Icon className={`h-6 w-6 ${colorClass}`} />
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-8">
       <BillDetailsModal
@@ -155,64 +140,77 @@ const Dashboard = () => {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+          <p className="text-gray-500 mt-1">
             Overview of your pharmacy performance today
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 shadow-sm">
-          <Calendar className="h-4 w-4" />
-          <span>{format(new Date(), 'dd MMMM yyyy')}</span>
+        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-soft text-sm text-gray-600">
+          <Calendar className="h-4 w-4 text-brand-primary-start" />
+          <span className="font-medium">{format(new Date(), 'dd MMMM yyyy')}</span>
         </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Today's Sales"
-          value={`₹${stats.todaySales.toLocaleString()}`}
-          subtext="Total revenue generated today"
-          icon={TrendingUp}
-          colorClass="text-emerald-600"
-          bgClass="bg-emerald-50"
-        />
-        <StatCard
-          title="Bills Created"
-          value={stats.todayBills}
-          subtext="Total transactions today"
-          icon={ShoppingBag}
-          colorClass="text-blue-600"
-          bgClass="bg-blue-50"
-        />
-        <StatCard
-          title="Expiring Soon"
-          value={stats.expiringSoon}
-          subtext={`Medicines expiring in ${stats.expiryThreshold} days`} 
-          icon={Calendar}
-          colorClass="text-red-600"
-          bgClass="bg-red-50"
+        <Card variant="gradient" className="p-6 relative overflow-hidden">
+          <div className="relative z-10">
+            <p className="text-white/80 font-medium mb-1">Today's Sales</p>
+            <h3 className="text-3xl font-bold text-white">₹{stats.todaySales.toLocaleString()}</h3>
+            <p className="text-white/70 text-sm mt-1">Total revenue generated</p>
+          </div>
+          <div className="absolute right-0 top-0 p-6 text-white/20">
+            <TrendingUp className="h-24 w-24 transform translate-x-4 -translate-y-4" />
+          </div>
+        </Card>
+
+        <Card className="p-6 flex items-center justify-between">
+          <div>
+            <p className="text-gray-500 font-medium mb-1">Bills Created</p>
+            <h3 className="text-2xl font-bold text-gray-800">{stats.todayBills}</h3>
+            <p className="text-gray-400 text-xs mt-1">Total transactions today</p>
+          </div>
+          <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center">
+            <ShoppingBag className="h-6 w-6" />
+          </div>
+        </Card>
+
+        <Card 
+          className="p-6 flex items-center justify-between cursor-pointer hover:scale-[1.02] transition-transform"
           onClick={() => window.location.href = '/returns'}
-          cursorClass="cursor-pointer"
-        />
-        <StatCard
-          title="Low Stock Items"
-          value={stats.lowStock}
-          subtext={`Medicines with packets <= ${stats.lowStockThreshold}`}
-          icon={AlertTriangle}
-          colorClass="text-amber-600"
-          bgClass="bg-amber-50"
+        >
+          <div>
+            <p className="text-gray-500 font-medium mb-1">Expiring Soon</p>
+            <h3 className="text-2xl font-bold text-gray-800">{stats.expiringSoon}</h3>
+            <p className="text-gray-400 text-xs mt-1">In next {stats.expiryThreshold} days</p>
+          </div>
+          <div className="h-12 w-12 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center">
+            <Calendar className="h-6 w-6" />
+          </div>
+        </Card>
+
+        <Card 
+          className="p-6 flex items-center justify-between cursor-pointer hover:scale-[1.02] transition-transform"
           onClick={() => setIsLowStockModalOpen(true)}
-          cursorClass="cursor-pointer"
-        />
+        >
+          <div>
+            <p className="text-gray-500 font-medium mb-1">Low Stock</p>
+            <h3 className="text-2xl font-bold text-gray-800">{stats.lowStock}</h3>
+            <p className="text-gray-400 text-xs mt-1">Items &le; {stats.lowStockThreshold}</p>
+          </div>
+          <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
+        </Card>
       </div>
 
       {/* Recent Sales Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">Recent Sales</h3>
+      <Card className="overflow-hidden p-0 border-none">
+        <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-white">
+          <h3 className="font-bold text-xl text-gray-800">Recent Sales</h3>
           <Link 
             to="/sales-history" 
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+            className="text-brand-primary-start hover:text-brand-primary-end font-medium flex items-center gap-1 transition-colors"
           >
             View All <ArrowUpRight className="h-4 w-4" />
           </Link>
@@ -220,55 +218,57 @@ const Dashboard = () => {
         
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-100">
+            <thead className="bg-[#FFFDFB] text-gray-500 font-medium border-b border-gray-100">
               <tr>
-                <th className="px-6 py-3">Customer Name</th>
-                <th className="px-6 py-3">Date</th>
-                <th className="px-6 py-3">Amount</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3 text-right">Action</th>
+                <th className="px-8 py-4">Customer Name</th>
+                <th className="px-8 py-4">Date</th>
+                <th className="px-8 py-4">Amount</th>
+                <th className="px-8 py-4">Status</th>
+                <th className="px-8 py-4 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-50/50">
               {loading ? (
                 <tr>
-                   <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                   <td colSpan={5} className="px-8 py-12 text-center text-gray-500">
                     <div className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand-primary-start"></div>
                       Loading data...
                     </div>
                   </td>
                 </tr>
               ) : recentBills.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={5} className="px-8 py-12 text-center text-gray-500">
                     No recent sales found.
                   </td>
                 </tr>
               ) : (
                 recentBills.map((bill) => (
-                  <tr key={bill.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-900">
+                  <tr key={bill.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-8 py-5 font-semibold text-gray-800">
                       {bill.customer_name}
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
+                    <td className="px-8 py-5 text-gray-500">
                       {format(new Date(bill.created_at), 'dd MMM, HH:mm')}
                     </td>
-                    <td className="px-6 py-4 font-medium text-gray-900">
+                    <td className="px-8 py-5 font-bold text-gray-800">
                       ₹{bill.total_amount.toFixed(2)}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 capitalize">
+                    <td className="px-8 py-5">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
                         Completed
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <button 
+                    <td className="px-8 py-5 text-right">
+                      <Button 
+                        variant="secondary"
+                        size="sm"
                         onClick={() => handleViewBill(bill.id)}
-                        className="inline-flex items-center justify-center px-3 py-1.5 border border-gray-200 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        className="h-8 px-4 text-xs shadow-none hover:shadow-md"
                       >
                         View
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))
@@ -276,7 +276,7 @@ const Dashboard = () => {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
     </div>
   );
 };
