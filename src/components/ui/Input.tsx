@@ -30,7 +30,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             className={cn(
-              "w-full bg-transparent border-none p-4 text-gray-700 placeholder-gray-400 focus:ring-0",
+              "w-full bg-transparent border-none p-4 text-gray-700 placeholder-gray-400 focus:outline-none",
               Icon ? "pl-3" : "pl-4"
             )}
             {...props}

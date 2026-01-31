@@ -13,7 +13,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       primary: 'bg-gradient-to-r from-brand-primary-start to-brand-primary-end text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]',
       secondary: 'bg-brand-secondary text-white shadow-md hover:shadow-lg hover:bg-brand-secondary/90 active:scale-[0.98]',
       outline: 'border-2 border-brand-primary-start text-brand-primary-start hover:bg-brand-primary-start/10',
-      ghost: 'text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800',
+      ghost: 'text-gray-600 hover:bg-gray-100',
     };
 
     const sizes = {
