@@ -125,8 +125,6 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     // Name: No numbers or symbols allowed
     if (!formData.name.trim()) {
         newErrors.name = "This field is required";
-    } else if (!/^[A-Za-z\s]+$/.test(formData.name)) {
-        newErrors.name = "Name must not contain numbers or symbols";
     }
 
     if (!formData.composition.trim()) newErrors.composition = "This field is required";
