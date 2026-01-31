@@ -33,7 +33,7 @@ as $$
 declare
   v_bill_id uuid;
   v_item jsonb;
-  v_med_id uuid;
+  v_med_id bigint;
   v_qty numeric;
   v_current_stock_loose numeric;
   v_current_stock_packets numeric;
@@ -55,7 +55,7 @@ begin
   -- 2. Process Items
   for v_item in select * from jsonb_array_elements(p_items)
   loop
-    v_med_id := (v_item->>'id')::uuid;
+    v_med_id := (v_item->>'id')::bigint;
     v_qty := (v_item->>'cartQuantity')::numeric;
 
     -- Insert Bill Item
