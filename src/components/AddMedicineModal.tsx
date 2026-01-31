@@ -20,6 +20,7 @@ import type { MedicineInsert, Medicine } from '../types';
 import { triggerLowStockAlert } from '../lib/notificationUtils';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import { Select } from './ui/Select';
 
 interface AddMedicineModalProps {
   isOpen: boolean;
@@ -76,18 +77,22 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     if (!isEditing) return;
     const { name, value } = e.target;
+    updateField(name, value);
+  };
 
-    if (['units_per_packet', 'stock_packets', 'stock_loose', 'mrp', 'purchase_price'].includes(name)) {
-      setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
+  const updateField = (name: string, value: any) => {
+     if (['units_per_packet', 'stock_packets', 'stock_loose', 'mrp', 'purchase_price'].includes(name)) {
+        setFormData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+      } else {
+        setFormData(prev => ({ ...prev, [name]: value }));
+      }
+  
+      if (errors[name]) {
+        setErrors(prev => ({ ...prev, [name]: '' }));
+      }
+  };
 
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-
-    if (name === 'quantity_type') {
+  const handleQuantityTypeChange = (value: string) => {
       if (value === 'Unit') {
         setFormData(prev => ({ 
           ...prev, 
@@ -98,8 +103,8 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
       } else {
         setFormData(prev => ({ ...prev, quantity_type: 'Strip' }));
       }
-    }
   };
+
 
   const handleToggleEdit = () => {
     setIsEditing(true);
@@ -202,21 +207,29 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
 
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
 
-        <div className="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-soft transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full border border-white/50">
-          <div className="px-6 py-6 bg-white sm:p-8">
-            <div className="flex justify-between items-center pb-6 border-b border-gray-100 mb-6">
+        <div className="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-soft transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full border border-white/50">
+          <div className="px-6 py-6 bg-white sm:p-10">
+            <div className="flex justify-between items-center pb-6 border-b border-gray-100 mb-8">
               <div className="flex items-center gap-3">
-                <h3 className="text-2xl font-bold text-gray-800">
-                  {/* Title Logic */}
-                  {!initialData ? 'Add New Medicine' : isEditing ? 'Edit Medicine' : 'Medicine Details'}
-                </h3>
-                
+                <div className="p-3 bg-brand-primary-start/10 rounded-2xl text-brand-primary-start">
+                   {initialData ? <Edit2 size={24} /> : <Pill size={24} />}
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800">
+                    {/* Title Logic */}
+                    {!initialData ? 'Add New Medicine' : isEditing ? 'Edit Medicine' : 'Medicine Details'}
+                  </h3>
+                  <p className="text-sm text-gray-400 font-medium">
+                     {isEditing ? 'Fill in the details below' : 'View medicine information'}
+                  </p>
+                </div>
+
                 {initialData && !isEditing && (
                   <Button 
                     variant="ghost" 
                     size="icon"
                     onClick={handleToggleEdit}
-                    className="rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100"
+                    className="rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 ml-2"
                     title="Edit Medicine"
                   >
                     <Edit2 className="h-4 w-4" />
@@ -224,7 +237,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                 )}
               </div>
               
-              <button onClick={onClose} className="text-gray-400 hover:text-gray-500 transition-colors">
+              <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
                 <X className="h-6 w-6" />
               </button>
             </div>
@@ -236,214 +249,224 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
               </div>
             )}
 
-            <form onSubmit={handleSaveMedicine} className="space-y-6">
-              {/* Row 1: Basic Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="sm:col-span-1">
-                  <Input 
-                    label="Name"
-                    icon={Pill}
-                    name="name" 
-                    autoComplete="off"
-                    value={formData.name} 
-                    onChange={handleChange} 
-                    disabled={!isEditing}
-                    error={errors.name}
-                    placeholder="Medicine Name"
-                  />
-                </div>
-                <div className="sm:col-span-1">
-                  <Input 
-                    label="Composition"
-                    icon={FlaskConical}
-                    name="composition" 
-                    autoComplete="off"
-                    value={formData.composition} 
-                    onChange={handleChange} 
-                    disabled={!isEditing}
-                    error={errors.composition}
-                    placeholder="Generic Name / Salt"
-                  />
-                </div>
-              </div>
-
-               {/* Row 2: Supply Chain */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="sm:col-span-1">
-                  <Input 
-                    label="Purchased From"
-                    icon={Truck}
-                    name="purchased_from" 
-                    autoComplete="off"
-                    value={formData.purchased_from} 
-                    onChange={handleChange} 
-                    disabled={!isEditing}
-                    error={errors.purchased_from}
-                    placeholder="Wholesaler Name"
-                  />
-                </div>
-                <div className="sm:col-span-1">
-                  <Input 
-                    label="Company"
-                    icon={Building2}
-                    name="company" 
-                    autoComplete="off"
-                    value={formData.company} 
-                    onChange={handleChange} 
-                    disabled={!isEditing}
-                    error={errors.company}
-                    placeholder="Manufacturer"
-                  />
-                </div>
-              </div>
-
-              {/* Row 3: Batch & Location */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                 <div className="sm:col-span-1">
-                  <Input
-                    label="Batch No"
-                    icon={Barcode}
-                    name="batch_no"
-                    autoComplete="off"
-                    value={formData.batch_no}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    error={errors.batch_no}
-                    placeholder="Batch Number"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <Input 
-                    label="Location / Rack"
-                    icon={MapPin}
-                    name="location" 
-                    value={formData.location} 
-                    onChange={handleChange} 
-                    disabled={!isEditing}
-                    placeholder="Shelf Location"
-                  />
-                </div>
-              </div>
-
-              {/* Row 4: Dates */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <Input
-                    label="Mfg Date"
-                    type="date"
-                    icon={Calendar}
-                    name="manufacture_date"
-                    value={formData.manufacture_date}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    error={errors.manufacture_date}
-                  />
-                </div>
-                <div>
-                  <Input
-                    label="Expiry Date"
-                    type="date"
-                    icon={Calendar}
-                    name="expiry_date"
-                    value={formData.expiry_date}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    error={errors.expiry_date}
-                  />
-                </div>
-              </div>
-
-               {/* Row 5: Type & Logic */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 ml-1 mb-2">Quantity Type</label>
-                  <div className="relative flex items-center bg-input-bg rounded-2xl">
-                    <div className="pl-4 text-gray-400">
-                      <Layers size={20} />
+            <form onSubmit={handleSaveMedicine} className="space-y-8">
+              {/* Section 1: Basic Info */}
+              <div className="space-y-4">
+                  <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Basic Information</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="sm:col-span-1">
+                      <Input 
+                        label="Name"
+                        icon={Pill}
+                        name="name" 
+                        autoComplete="off"
+                        value={formData.name} 
+                        onChange={handleChange} 
+                        disabled={!isEditing}
+                        error={errors.name}
+                        placeholder="Medicine Name"
+                      />
                     </div>
-                    <select 
-                      name="quantity_type" 
-                      value={formData.quantity_type} 
-                      onChange={handleChange} 
-                      disabled={!isEditing}
-                      className="w-full bg-transparent border-none p-4 text-gray-700 focus:ring-0 appearance-none"
-                    >
-                      <option value="Strip">Strip</option>
-                      <option value="Unit">Unit</option>
-                    </select>
+                    <div className="sm:col-span-1">
+                      <Input 
+                        label="Composition"
+                        icon={FlaskConical}
+                        name="composition" 
+                        autoComplete="off"
+                        value={formData.composition} 
+                        onChange={handleChange} 
+                        disabled={!isEditing}
+                        error={errors.composition}
+                        placeholder="Generic Name / Salt"
+                      />
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <Input
-                    label="Units per Packet"
-                    type="number"
-                    icon={Package}
-                    name="units_per_packet"
-                    value={formData.units_per_packet}
-                    onChange={handleChange}
-                    disabled={formData.quantity_type === 'Unit' || !isEditing}
-                  />
-                </div>
               </div>
 
-               {/* Row 6: Stock */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <Input
-                    label="Stock (Packets/Boxes)"
-                    type="number"
-                    icon={Box}
-                    name="stock_packets"
-                    autoComplete="off"
-                    value={formData.stock_packets}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    error={errors.stock_packets}
-                  />
-                </div>
-                <div>
-                   <Input
-                    label={`Stock (Loose ${formData.quantity_type}s)`}
-                    type="number"
-                    icon={Pill}
-                    name="stock_loose"
-                    value={formData.stock_loose}
-                    onChange={handleChange}
-                    disabled={formData.quantity_type === 'Unit' || !isEditing}
-                  />
-                </div>
+               {/* Section 2: Supply Chain */}
+              <div className="space-y-4">
+                   <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Supply Chain</h4>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="sm:col-span-1">
+                      <Input 
+                        label="Purchased From"
+                        icon={Truck}
+                        name="purchased_from" 
+                        autoComplete="off"
+                        value={formData.purchased_from} 
+                        onChange={handleChange} 
+                        disabled={!isEditing}
+                        error={errors.purchased_from}
+                        placeholder="Wholesaler Name"
+                      />
+                    </div>
+                    <div className="sm:col-span-1">
+                      <Input 
+                        label="Company"
+                        icon={Building2}
+                        name="company" 
+                        autoComplete="off"
+                        value={formData.company} 
+                        onChange={handleChange} 
+                        disabled={!isEditing}
+                        error={errors.company}
+                        placeholder="Manufacturer"
+                      />
+                    </div>
+                  </div>
               </div>
 
-              {/* Row 7: Price */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                 <div>
-                  <Input
-                    label="MRP"
-                    type="number"
-                    step="0.01"
-                    icon={IndianRupee}
-                    name="mrp"
-                    autoComplete="off"
-                    value={formData.mrp}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    error={errors.mrp}
-                  />
-                </div>
-                 <div>
-                  <Input
-                    label="Purchase Price"
-                    type="number"
-                    step="0.01"
-                    icon={IndianRupee}
-                    name="purchase_price"
-                    autoComplete="off"
-                    value={formData.purchase_price}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    error={errors.purchase_price}
-                  />
-                </div>
+
+              {/* Section 3: Inventory Details */}
+              <div className="space-y-4">
+                 <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Inventory Details</h4>
+                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                     <div className="sm:col-span-1">
+                      <Input
+                        label="Batch No"
+                        icon={Barcode}
+                        name="batch_no"
+                        autoComplete="off"
+                        value={formData.batch_no}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        error={errors.batch_no}
+                        placeholder="Batch Number"
+                      />
+                    </div>
+                     <div className="sm:col-span-2">
+                       <Input 
+                        label="Location / Rack"
+                        icon={MapPin}
+                        name="location" 
+                        value={formData.location} 
+                        onChange={handleChange} 
+                        disabled={!isEditing}
+                        placeholder="Shelf Location"
+                      />
+                    </div>
+                 </div>
+                 
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                      <Input
+                        label="Mfg Date"
+                        type="date"
+                        icon={Calendar}
+                        name="manufacture_date"
+                        value={formData.manufacture_date}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        error={errors.manufacture_date}
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        label="Expiry Date"
+                        type="date"
+                        icon={Calendar}
+                        name="expiry_date"
+                        value={formData.expiry_date}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        error={errors.expiry_date}
+                      />
+                    </div>
+                  </div>
+              </div>
+
+
+               {/* Section 4: Stock & Pricing */}
+              <div className="space-y-4">
+                  <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Stock & Pricing</h4>
+                  <div className="p-6 bg-brand-bg/50 rounded-2xl border border-brand-primary-start/10 space-y-6">
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div>
+                         <Select 
+                            label="Quantity Type"
+                            icon={Layers}
+                            options={[
+                                { value: 'Strip', label: 'Strip' },
+                                { value: 'Unit', label: 'Unit' }
+                            ]}
+                            value={formData.quantity_type}
+                            onChange={handleQuantityTypeChange}
+                            disabled={!isEditing}
+                         />
+                        </div>
+                        <div>
+                          <Input
+                            label="Units per Packet"
+                            type="number"
+                            icon={Package}
+                            name="units_per_packet"
+                            value={formData.units_per_packet}
+                            onChange={handleChange}
+                            disabled={formData.quantity_type === 'Unit' || !isEditing}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div>
+                          <Input
+                            label="Stock (Packets/Boxes)"
+                            type="number"
+                            icon={Box}
+                            name="stock_packets"
+                            autoComplete="off"
+                            value={formData.stock_packets}
+                            onChange={handleChange}
+                            disabled={!isEditing}
+                            error={errors.stock_packets}
+                          />
+                        </div>
+                        <div>
+                           <Input
+                            label={`Stock (Loose ${formData.quantity_type}s)`}
+                            type="number"
+                            icon={Pill}
+                            name="stock_loose"
+                            value={formData.stock_loose}
+                            onChange={handleChange}
+                            disabled={formData.quantity_type === 'Unit' || !isEditing}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="h-px bg-gray-200"></div>
+
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                         <div>
+                          <Input
+                            label="MRP"
+                            type="number"
+                            step="0.01"
+                            icon={IndianRupee}
+                            name="mrp"
+                            autoComplete="off"
+                            value={formData.mrp}
+                            onChange={handleChange}
+                            disabled={!isEditing}
+                            error={errors.mrp}
+                          />
+                        </div>
+                         <div>
+                          <Input
+                            label="Purchase Price"
+                            type="number"
+                            step="0.01"
+                            icon={IndianRupee}
+                            name="purchase_price"
+                            autoComplete="off"
+                            value={formData.purchase_price}
+                            onChange={handleChange}
+                            disabled={!isEditing}
+                            error={errors.purchase_price}
+                          />
+                        </div>
+                      </div>
+                  </div>
               </div>
 
               <div className="mt-8 pt-6 border-t border-gray-100 flex gap-4 justify-end">
@@ -453,15 +476,15 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                       type="button"
                       variant="ghost"
                       onClick={handleCancelEdit}
-                      className="w-full sm:w-auto"
+                      className="w-full sm:w-auto text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                     >
                       Cancel
                     </Button>
                     <Button
                       type="submit"
-                      variant="secondary" // Mint Green for Save
+                      variant="primary" 
                       disabled={loading}
-                      className="w-full sm:w-auto"
+                      className="w-full sm:w-auto shadow-xl shadow-brand-primary-start/20"
                     >
                       {loading ? (
                         <>
@@ -490,4 +513,5 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
   );
 };
 
-export default AddMedicineModal;
+export default AddMedicineModal;  
+

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Trash2, ShoppingCart, Save, Plus, Loader2, User, Phone, Stethoscope, CreditCard, AlertCircle } from 'lucide-react';
+import { Search, Trash2, ShoppingCart, Save, Plus, Loader2, User, Phone, Stethoscope, CreditCard, AlertCircle, Receipt } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Medicine, CartItem } from '../types';
 import { cn } from '../lib/utils';
@@ -9,6 +9,7 @@ import { triggerLowStockAlert } from '../lib/notificationUtils';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
 
 const Billing = () => {
   // --- State ---
@@ -272,19 +273,17 @@ const Billing = () => {
                       value={doctorName}
                       onChange={(e) => setDoctorName(e.target.value)}
                     />
-                   <div className="relative flex items-center bg-input-bg rounded-2xl">
-                      <div className="pl-4 text-gray-400">
-                        <CreditCard size={20} />
-                      </div>
-                      <select 
+                   <div>
+                    <Select 
+                        icon={CreditCard}
+                        options={[
+                            { value: 'Cash', label: 'Cash' },
+                            { value: 'UPI', label: 'UPI' },
+                            { value: 'Card', label: 'Card' }
+                        ]}
                         value={paymentMode}
-                        onChange={(e) => setPaymentMode(e.target.value)}
-                        className="w-full bg-transparent border-none p-4 text-gray-700 focus:ring-0 appearance-none"
-                      >
-                         <option value="Cash">Cash</option>
-                         <option value="UPI">UPI</option>
-                         <option value="Card">Card</option>
-                      </select>
+                        onChange={setPaymentMode}
+                    />
                    </div>
                </div>
           </div>
@@ -308,16 +307,16 @@ const Billing = () => {
 
           {/* Search Results */}
           {searchResults.length > 0 && (
-                <div className="overflow-x-auto mt-2 border border-gray-100 rounded-2xl max-h-60 overflow-y-auto shadow-sm">
+                <div className="overflow-x-auto mt-2 border border-brand-primary-start/20 rounded-2xl max-h-60 overflow-y-auto shadow-lg shadow-brand-primary-start/5">
                   <table className="min-w-full divide-y divide-gray-100">
-                    <thead className="bg-gray-50/80 sticky top-0 backdrop-blur-sm">
+                    <thead className="bg-[#FFF5F0] sticky top-0 backdrop-blur-sm z-10">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Medicine</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Batch</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Expiry</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">MRP</th>
-                        <th className="px-6 py-3 text-right">Action</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-brand-primary-start uppercase tracking-wider">Medicine</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-brand-primary-start uppercase tracking-wider">Batch</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-brand-primary-start uppercase tracking-wider">Expiry</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-brand-primary-start uppercase tracking-wider">Stock</th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-brand-primary-start uppercase tracking-wider">MRP</th>
+                        <th className="px-6 py-4 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-50">
@@ -376,26 +375,28 @@ const Billing = () => {
 
       {/* 3. The Cart (Right - 1col) */}
       <div className="space-y-4">
-          <Card className="flex flex-col h-[calc(100vh-140px)] p-0 overflow-hidden border-none shadow-soft">
-            <div className="p-5 border-b border-gray-100 bg-white flex justify-between items-center">
+          <Card className="flex flex-col h-[calc(100vh-140px)] p-0 overflow-hidden border-none shadow-soft bg-white ring-1 ring-black/5">
+            {/* Receipt Header Idea */}
+            <div className="relative p-5 bg-[#FFF9F5] border-b border-dashed border-brand-primary-start/30 flex justify-between items-center z-10">
+               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-primary-start to-brand-primary-end"></div>
                <h2 className="font-bold text-gray-800 flex items-center text-lg">
-                 <ShoppingCart className="h-5 w-5 mr-2 text-brand-primary-start" /> Current Bill
+                 <Receipt className="h-5 w-5 mr-2 text-brand-primary-start" /> Current Bill
                </h2>
-               <span className="text-xs font-semibold bg-brand-bg text-gray-600 px-3 py-1 rounded-full">{cart.length} Items</span>
+               <span className="text-xs font-bold bg-white text-brand-primary-start px-3 py-1 rounded-full shadow-sm border border-brand-primary-start/10">{cart.length} Items</span>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-brand-bg/30">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[#F8F9FB]">
               {cart.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                  <div className="bg-gray-100 p-6 rounded-full mb-4">
+                  <div className="bg-white p-6 rounded-full mb-4 shadow-sm border border-gray-100">
                      <ShoppingCart className="h-8 w-8 text-gray-300" />
                   </div>
-                  <p className="font-medium">Cart is empty</p>
-                  <p className="text-sm opacity-70 mt-1">Search medicine to add</p>
+                  <p className="font-medium text-gray-500">Cart is empty</p>
+                  <p className="text-sm opacity-60 mt-1">Ready to create invoice</p>
                 </div>
               ) : (
                 cart.map((item) => (
-                  <div key={item.id} className="flex flex-col p-4 border border-white bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+                  <div key={item.id} className="relative flex flex-col p-4 bg-white rounded-2xl shadow-sm border border-gray-100 group">
                     <div className="flex justify-between items-start mb-3">
                        <div className="flex items-center gap-3">
                          <div className="h-10 w-10 rounded-xl bg-brand-primary-start/10 text-brand-primary-start flex items-center justify-center font-bold">
@@ -408,37 +409,38 @@ const Billing = () => {
                        </div>
                        <button 
                          onClick={() => removeFromCart(item.id)}
-                         className="text-gray-400 hover:text-red-500 p-1 transition-colors"
+                         className="text-gray-300 hover:text-red-500 p-1 transition-colors"
                        >
                          <Trash2 className="h-4 w-4" />
                        </button>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-3 items-end bg-gray-50 p-3 rounded-xl">
-                       <div>
-                         <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Qty</label>
+                    <div className="grid grid-cols-2 gap-3 items-end bg-gray-50 p-2 rounded-xl">
+                       <div className="relative">
+                         <label className="text-[9px] uppercase font-bold text-gray-400 mb-1 block pl-1">Quantity</label>
                          <input 
                            type="number" 
                            min="1"
                            value={item.cartQuantity}
                            onChange={(e) => updateCartItem(item.id, 'cartQuantity', parseInt(e.target.value) || 0)}
-                           className="w-full text-sm font-semibold bg-white border-none rounded-lg py-1 px-2 focus:ring-2 focus:ring-brand-primary-start/20 shadow-sm"
+                           className="w-full text-sm font-bold bg-white border border-gray-200 rounded-lg py-1.5 px-3 focus:ring-2 focus:ring-brand-primary-start/20 focus:border-brand-primary-start/50 outline-none transition-all"
                          />
                        </div>
-                       <div>
-                         <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block">Price</label>
+                       <div className="relative">
+                         <label className="text-[9px] uppercase font-bold text-gray-400 mb-1 block pl-1">Rate (₹)</label>
                          <input 
                            type="number" 
                            step="0.01"
                            value={item.sellingPrice}
                            onChange={(e) => updateCartItem(item.id, 'sellingPrice', parseFloat(e.target.value) || 0)}
-                           className="w-full text-sm font-semibold bg-white border-none rounded-lg py-1 px-2 focus:ring-2 focus:ring-brand-primary-start/20 shadow-sm"
+                           className="w-full text-sm font-bold bg-white border border-gray-200 rounded-lg py-1.5 px-3 focus:ring-2 focus:ring-brand-primary-start/20 focus:border-brand-primary-start/50 outline-none transition-all"
                          />
                        </div>
                     </div>
-                    <div className="mt-3 flex justify-between items-center px-1">
+                    
+                    <div className="mt-3 flex justify-between items-center px-1 border-t border-dashed border-gray-100 pt-2">
                       <span className="text-xs text-gray-500">Subtotal</span>
-                      <span className="text-sm font-bold text-gray-900">
+                      <span className="text-sm font-black text-gray-800">
                         ₹{(item.cartQuantity * item.sellingPrice).toFixed(2)}
                       </span>
                     </div>
@@ -448,15 +450,25 @@ const Billing = () => {
             </div>
 
             {/* Footer Totals */}
-            <div className="p-6 border-t border-gray-100 bg-white space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
-               <div className="space-y-2">
+            <div className="relative p-6 bg-white shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20">
+               {/* Decorative serrated edge top */}
+               <div className="absolute top-0 left-0 right-0 h-4 -mt-4 overflow-hidden pointer-events-none">
+                 {/* CSS Trick for serrated edge if possible, or just shadow */}
+                 <div className="h-4 w-full bg-gradient-to-t from-black/5 to-transparent"></div>
+               </div>
+
+               <div className="space-y-3 mb-6">
                  <div className="flex justify-between items-center text-sm">
-                   <span className="text-gray-500">Total Items</span>
+                   <span className="text-gray-500 font-medium">Items</span>
                    <span className="font-bold text-gray-800">{cart.length}</span>
                  </div>
-                 <div className="flex justify-between items-center pt-3 border-t border-dashed border-gray-200">
-                   <span className="text-lg font-bold text-gray-800">Grand Total</span>
-                   <span className="text-2xl font-black bg-gradient-to-r from-brand-primary-start to-brand-primary-end bg-clip-text text-transparent">
+                 <div className="flex justify-between items-center text-sm">
+                   <span className="text-gray-500 font-medium">Subtotal</span>
+                   <span className="font-bold text-gray-800">₹{grandTotal.toFixed(2)}</span>
+                 </div>
+                 <div className="flex justify-between items-center pt-4 border-t-2 border-dashed border-gray-100">
+                   <span className="text-lg font-bold text-gray-800">Total</span>
+                   <span className="text-3xl font-black text-brand-primary-start">
                      ₹{grandTotal.toFixed(2)}
                    </span>
                  </div>
@@ -465,7 +477,7 @@ const Billing = () => {
                <Button 
                  onClick={handleCheckout}
                  disabled={cart.length === 0 || isSubmitting}
-                 className="w-full h-12 text-base shadow-lg hover:shadow-xl hover:translate-y-[-1px] transition-all"
+                 className="w-full h-14 text-base font-bold shadow-xl shadow-brand-primary-start/30 hover:shadow-brand-primary-start/40 hover:translate-y-[-2px] transition-all"
                >
                  {isSubmitting ? (
                    <>
@@ -475,7 +487,7 @@ const Billing = () => {
                  ) : (
                    <>
                     <Save className="mr-2 h-5 w-5" />
-                    Complete Bill
+                    Complete Transaction
                    </>
                  )}
                </Button>
