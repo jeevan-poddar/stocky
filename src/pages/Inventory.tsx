@@ -3,15 +3,30 @@ import { Plus, Search, Eye, Trash2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Medicine } from '../types';
 import AddMedicineModal from '../components/AddMedicineModal';
+import ConfirmationModal from '../components/ConfirmationModal';
+import SuccessModal from '../components/SuccessModal';
 import { cn } from '../lib/utils';
 
 const Inventory = () => {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Add/Edit Modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
+
+  // Delete Modal
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+
+  // Success Modal
+  const [successModal, setSuccessModal] = useState<{ isOpen: boolean; title: string; message: string }>({
+    isOpen: false,
+    title: '',
+    message: ''
+  });
 
   const [expiryThreshold, setExpiryThreshold] = useState(60);
   const [lowStockThreshold, setLowStockThreshold] = useState(10);
@@ -46,21 +61,43 @@ const Inventory = () => {
         setLowStockThreshold(profileData.data.low_stock_threshold || 10);
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      // console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this medicine?')) return;
+  const handleDeleteClick = (id: string) => {
+    setItemToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
 
-    const { error } = await supabase.from('medicines').delete().eq('id', id);
-    if (error) {
-      console.error('Error deleting medicine:', error);
-    } else {
-      fetchMedicines();
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+
+    try {
+        const { error } = await supabase.from('medicines').delete().eq('id', itemToDelete);
+        if (error) {
+           console.error('Error deleting medicine:', error); // Log for debugging
+           // Optionally show error modal here
+        } else {
+          showSuccess('Deleted!', 'Medicine has been deleted successfully.');
+          fetchMedicines();
+        }
+    } catch (error) {
+        console.error(error);
+    } finally {
+        setIsDeleteModalOpen(false);
+        setItemToDelete(null);
     }
+  };
+
+  const showSuccess = (title: string, message: string) => {
+    setSuccessModal({
+      isOpen: true,
+      title,
+      message
+    });
   };
 
   const handleAddNew = () => {
@@ -232,7 +269,7 @@ const Inventory = () => {
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDelete(med.id);
+                            handleDeleteClick(med.id);
                           }}
                           className="text-red-600 hover:text-red-900"
                         >
@@ -252,11 +289,31 @@ const Inventory = () => {
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
         onSuccess={() => {
+          showSuccess(selectedMedicine ? 'Updated!' : 'Added!', selectedMedicine ? 'Medicine details updated successfully.' : 'New medicine added to inventory.');
           fetchMedicines();
         }}
         initialData={selectedMedicine}
         isViewMode={isViewMode}
       />
+
+       {/* Delete Confirmation Modal */}
+       <ConfirmationModal 
+         isOpen={isDeleteModalOpen}
+         onClose={() => setIsDeleteModalOpen(false)}
+         onConfirm={confirmDelete}
+         title="Delete Medicine?"
+         message="Are you sure you want to delete this medicine? This action cannot be undone."
+         confirmText="Delete"
+         isDestructive={true}
+       />
+       
+       {/* Success Modal */}
+       <SuccessModal
+         isOpen={successModal.isOpen}
+         onClose={() => setSuccessModal(prev => ({ ...prev, isOpen: false }))}
+         title={successModal.title}
+         message={successModal.message}
+       />
     </div>
   );
 };

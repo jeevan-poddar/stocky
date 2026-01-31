@@ -76,11 +76,27 @@ const Dashboard = () => {
       const totalSales = todayBills.reduce((sum, bill) => sum + (bill.total_amount || 0), 0);
 
       // Process Low Stock & Expiring Data
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+
       const allMedicines = (medicinesData.data as Medicine[]) || [];
-      const lowStock = allMedicines.filter(m => m.stock_packets <= stockThreshold);
+      
+      // Low Stock: Count <= threshold AND Not Expired
+      const lowStock = allMedicines.filter(m => 
+        m.stock_packets <= stockThreshold && 
+        new Date(m.expiry_date) >= todayDate
+      );
       
       const expiryDateLimit = addDays(new Date(), threshold);
-      const expiringSoon = allMedicines.filter(m => new Date(m.expiry_date) <= expiryDateLimit);
+      
+      // Expiring Soon: Expiring within threshold AND In Stock (> 0)
+      // Also ensure we don't count already expired items as "Expiring Soon" (optional but cleaner)
+      const expiringSoon = allMedicines.filter(m => {
+        const expDate = new Date(m.expiry_date);
+        return expDate <= expiryDateLimit && 
+               expDate >= todayDate && 
+               m.stock_packets > 0;
+      });
 
       setLowStockItems(lowStock);
 
@@ -96,7 +112,7 @@ const Dashboard = () => {
       setRecentBills(recentBillsData.data || []);
 
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      // console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }

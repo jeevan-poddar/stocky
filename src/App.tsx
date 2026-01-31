@@ -14,6 +14,7 @@ import Dashboard from './pages/Dashboard';
 import SalesHistory from './pages/SalesHistory';
 import Returns from './pages/Returns';
 import Settings from './pages/Settings';
+import Notifications from './pages/Notifications';
 
 import { checkInventoryNotifications } from './lib/inventoryUtils';
 
@@ -24,11 +25,10 @@ function App() {
   // Handle Foreground Messages
   useEffect(() => {
     if (notificationPermissionStatus === 'granted') {
-      const unsubscribe = onMessage(messaging, (payload) => {
-        console.log('Foreground Message received: ', payload);
-        const { title, body } = payload.notification || {};
-        // You can replace this with a toast notification
-        alert(`New Message: ${title} - ${body}`);
+      const unsubscribe = onMessage(messaging, (_) => {
+        // console.log('Foreground Message received: ', payload);
+        // const { title, body } = payload.notification || {};
+        // Alert removed as requested
       });
       return () => unsubscribe();
     }
@@ -40,10 +40,10 @@ function App() {
       const messages = await checkInventoryNotifications();
       if (messages && messages.length > 0) {
         // Concatenate for simple alert
-        const combinedMessage = messages.map(m => `${m.title}: ${m.message}`).join('\n\n');
+        // const combinedMessage = messages.map(m => `${m.title}: ${m.message}`).join('\n\n');
         
-        console.log("Inventory Alerts:", combinedMessage);
-        setTimeout(() => alert(combinedMessage), 1000);
+        // console.log("Inventory Alerts:", combinedMessage);
+        // Alert removed
       }
     };
     runCheck();
@@ -72,7 +72,9 @@ function App() {
           <Route path="inventory" element={<Inventory />} />
           <Route path="sales-history" element={<SalesHistory />} />
           <Route path="returns" element={<Returns />} />
+          <Route path="returns" element={<Returns />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="notifications" element={<Notifications />} />
           
           {/* Default redirect to dashboard */}
           <Route index element={<Navigate to="/dashboard" replace />} />

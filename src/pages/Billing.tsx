@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import type { Medicine, CartItem } from '../types';
 import { cn } from '../lib/utils';
 import { getNewInvoiceNumber } from '../lib/billUtils';
+import SuccessModal from '../components/SuccessModal';
 
 const Billing = () => {
   // --- State ---
@@ -12,6 +13,7 @@ const Billing = () => {
   const [phone, setPhone] = useState('');
   const [doctorName, setDoctorName] = useState('');
   const [paymentMode, setPaymentMode] = useState('Cash');
+  const [errors, setErrors] = useState<{customerName?: string, phone?: string}>({});
 
   // Search & Inventory
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,7 +25,15 @@ const Billing = () => {
   
   // Checkout
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [grandTotal, setGrandTotal] = useState(0);
+
+  // Success Modal
+  const [successModal, setSuccessModal] = useState<{isOpen: boolean, title: string, message: string}>({
+      isOpen: false,
+      title: '',
+      message: ''
+  });
 
   // --- Search Logic ---
   useEffect(() => {
@@ -38,47 +48,52 @@ const Billing = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm]);
 
+  // Update Grand Total whenever cart changes
+  useEffect(() => {
+    setGrandTotal(calculateTotal());
+  }, [cart]);
+
   const searchMedicines = async () => {
     setIsSearching(true);
     const { data, error } = await supabase
       .from('medicines')
       .select('*')
       .or(`name.ilike.%${searchTerm}%,composition.ilike.%${searchTerm}%`)
-      .gt('expiry_date', new Date().toISOString().split('T')[0]) // Optional: Filter expired? user didn't explicitly say, but it's good practice. Keep it strictly search for now as User asked to show exp dates.
-      // Actually user wanted to see list of batches. If I filter text I might miss relevant ones.
-      // Reverting the filter to match user requirement: "Show a List of Batches available...". They might want to sell expired stock? 
-      // Let's perform the search without expiry filter for now, but maybe order by expiry?
-      .order('expiry_date', { ascending: true }) 
+      .gt('expiry_date', new Date().toISOString().split('T')[0]) 
       .limit(10);
-    
-    if (!error && data) {
-      setSearchResults(data);
+      
+    if (error) {
+        // console.error(error);
+    } else {
+        setSearchResults(data || []);
     }
     setIsSearching(false);
   };
 
-  // --- Cart Formatting Helpers ---
-  const getTotalStock = (med: Medicine) => {
-    return (med.stock_packets * med.units_per_packet) + med.stock_loose;
-  };
-
-  const addToCart = (med: Medicine) => {
-    const existingItem = cart.find(item => item.id === med.id);
-    const maxStock = getTotalStock(med);
-
-    if (maxStock <= 0) {
-      alert("Out of stock!");
-      return;
+  // --- Cart Logic ---
+  const addToCart = (medicine: Medicine) => {
+    const existingItem = cart.find(item => item.id === medicine.id);
+    
+    // Check stock
+    const currentQtyInCart = existingItem ? existingItem.cartQuantity : 0;
+    
+    if (currentQtyInCart + 1 > medicine.stock_packets) {
+         setMessage({ type: 'error', text: `Insufficient stock for ${medicine.name}` });
+         setTimeout(() => setMessage(null), 3000);
+         return;
     }
 
     if (existingItem) {
-      alert("This batch is already in your cart!");
-      return;
+      setCart(cart.map(item => 
+        item.id === medicine.id 
+          ? { ...item, cartQuantity: item.cartQuantity + 1 } 
+          : item
+      ));
+    } else {
+      setCart([...cart, { ...medicine, cartQuantity: 1, sellingPrice: medicine.mrp }]); 
     }
-
-    setCart([...cart, { ...med, cartQuantity: 1, sellingPrice: med.mrp }]);
-    setSearchTerm(''); // Clear search after adding
-    setSearchResults([]);
+    setSearchTerm(''); // Clear search
+    setSearchResults([]); 
   };
 
   const removeFromCart = (id: string) => {
@@ -86,202 +101,167 @@ const Billing = () => {
   };
 
   const updateCartItem = (id: string, field: 'cartQuantity' | 'sellingPrice', value: number) => {
+    if (value < 0) return;
+    
     setCart(cart.map(item => {
-      if (item.id === id) {
-        if (field === 'cartQuantity') {
-          // Check stock limit
-          const maxStock = getTotalStock(item);
-          if (value > maxStock) {
-             alert(`Cannot exceed available stock of ${maxStock} units!`);
-             return item; 
-          }
+        if (item.id === id) {
+            return { ...item, [field]: value };
         }
-        return { ...item, [field]: value };
-      }
-      return item;
+        return item;
     }));
   };
 
-  // --- Totals Calculation ---
-  const grandTotal = cart.reduce((sum, item) => sum + (item.cartQuantity * item.sellingPrice), 0);
-  
-  const totalProfit = cart.reduce((sum, item) => {
-    // Profit = (Selling Price - Purchase Price) * Qty
-    // Profit = (Selling Price - Purchase Price) * Qty
-    // Wait. purchase_price in schema usually refers to the Buying Price of the 'pack'? 
-    // In AddMedicineModal: Price Row has MRP and Purchase Price. 
-    // If quantity_type is 'Strip', does Purchase Price mean per Strip?
-    // Usually yes.
-    // If I sell 1 unit (1 strip), profit is SP - PP.
-    // However, if I break the pack?
-    // Wait, the logic for `stock_loose` and `stock_packets` implies:
-    // `units_per_packet` is how many `units` are in a `packet`.
-    // BUT the prompt says "Pack + Loose".
-    // If quantity_type is 'Strip', we track Strips. 
-    // Usually stock_packets = Box. stock_loose = Loose Strips.
-    // units_per_packet = Strips per Box.
-    // purchase_price is usually Per Box or Per Strip?
-    // Let's assume Purchase Price is Per UNIT (Strip) for simplicity unless specified otherwise, OR check AddModal labels.
-    // AddMedicineModal inputs: MRP, Purchase Price.
-    // It doesn't specify if it is per box or per unit. 
-    // Standard practice: MRP is per Unit (Strip). Purchase Price is per Unit (Strip).
-    // Let's assume Purchase Price is PER UNIT (Quantity Type).
-    return sum + ((item.sellingPrice - item.purchase_price) * item.cartQuantity);
-  }, 0);
+  const calculateTotal = () => {
+    return cart.reduce((total, item) => total + (item.sellingPrice * item.cartQuantity), 0);
+  };
 
-  // --- Checkout ---
-  const handleCheckout = async () => {
-    if (cart.length === 0) {
-      alert("Cart is empty!");
-      return;
+  // --- Submit Bill ---
+  const handleSaveBill = async () => {
+    // Validation
+    const newErrors: {customerName?: string, phone?: string} = {};
+    if (!customerName.trim()) newErrors.customerName = "Customer Name is required";
+    else if (!/^[A-Za-z\s]+$/.test(customerName)) newErrors.customerName = "Name must contain letters only";
+
+    if (!phone.trim()) newErrors.phone = "Phone Number is required";
+    
+    if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        return;
     }
-    if (!customerName) {
-      alert("Please enter Customer Name.");
+
+    if (cart.length === 0) {
+      setMessage({ type: 'error', text: "Cart is empty!" });
+      setTimeout(() => setMessage(null), 3000);
       return;
     }
 
     setIsSubmitting(true);
+    setMessage(null);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      // Generate Invoice Number
       const invoiceNumber = await getNewInvoiceNumber();
+      const totalProfit = cart.reduce((acc, item) => acc + ((item.sellingPrice - item.purchase_price) * item.cartQuantity), 0);
 
-      // Prepare payload for RPC
-      const payload = {
+      const { error } = await supabase.rpc('create_bill_transaction', {
         p_customer_name: customerName,
         p_customer_phone: phone,
         p_doctor_name: doctorName,
-        p_total_amount: grandTotal,
+        p_total_amount: calculateTotal(),
         p_total_profit: totalProfit,
         p_payment_mode: paymentMode,
-        p_invoice_number: invoiceNumber,
-        p_items: cart.map(item => ({
-          id: item.id,
-          name: item.name,
-          batch_no: item.batch_no,
-          expiry_date: item.expiry_date,
-          mrp: item.mrp,
-          sellingPrice: item.sellingPrice,
-          cartQuantity: item.cartQuantity
-        }))
-      };
-
-      const { error } = await supabase.rpc('create_bill_transaction', payload);
+        p_items: cart,
+        p_invoice_number: invoiceNumber
+      });
 
       if (error) throw error;
 
-      setSuccessMessage("Bill Saved Successfully!");
+      // Success
+      setSuccessModal({
+          isOpen: true,
+          title: 'Bill Saved!',
+          message: `Invoice #${invoiceNumber} generated successfully.`
+      });
+      // Clear all
       setCart([]);
       setCustomerName('');
       setPhone('');
       setDoctorName('');
-      setTimeout(() => setSuccessMessage(null), 3000);
-
+      setErrors({});
+      
     } catch (err: any) {
-      console.error(err);
-      alert("Failed to save bill: " + err.message);
+      // console.error(err);
+      setMessage({ type: 'error', text: "Failed to save bill: " + err.message });
+      setTimeout(() => setMessage(null), 5000);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleCheckout = () => {
+      handleSaveBill();
+  };
+
+  const getTotalStock = (med: Medicine) => {
+      // Simplified total units calculation
+      return med.stock_packets; 
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">New Bill</h1>
-          <p className="text-sm text-gray-500">Create invoice for customer</p>
-        </div>
-        {successMessage && (
-          <div className="bg-green-100 text-green-800 px-4 py-2 rounded-md font-medium animate-fade-in">
-            {successMessage}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-6rem)]">
+      {/* Left Column: Product Search & Cart */}
+      <div className="lg:col-span-2 flex flex-col gap-6 h-full">
+        {/* Search */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+           {/* Customer Info Section (Moved inside or kept separate? Layout implies Search is top) */}
+           {/* Let's keep search focused here */}
+          <div className="flex flex-col gap-4 mb-4">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <input 
+                      type="text" 
+                      placeholder="Customer Name" 
+                      value={customerName}
+                      onChange={(e) => {
+                          setCustomerName(e.target.value);
+                          if(errors.customerName) setErrors(prev => ({...prev, customerName: ''}));
+                      }}
+                      className={cn("w-full p-2 border rounded", errors.customerName ? "border-red-500" : "border-gray-200")}
+                    />
+                    {errors.customerName && <p className="text-red-500 text-xs mt-1">{errors.customerName}</p>}
+                  </div>
+                  <div>
+                    <input 
+                      type="text" 
+                      placeholder="Phone Number" 
+                      value={phone}
+                      onChange={(e) => {
+                          setPhone(e.target.value);
+                          if(errors.phone) setErrors(prev => ({...prev, phone: ''}));
+                      }}
+                      className={cn("w-full p-2 border rounded", errors.phone ? "border-red-500" : "border-gray-200")}
+                    />
+                     {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                  </div>
+               </div>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <input 
+                      type="text" 
+                      placeholder="Doctor Name (Optional)" 
+                      value={doctorName}
+                      onChange={(e) => setDoctorName(e.target.value)}
+                      className="w-full p-2 border border-gray-200 rounded"
+                    />
+                   <select 
+                      value={paymentMode}
+                      onChange={(e) => setPaymentMode(e.target.value)}
+                      className="w-full p-2 border border-gray-200 rounded"
+                   >
+                       <option value="Cash">Cash</option>
+                       <option value="UPI">UPI</option>
+                       <option value="Card">Card</option>
+                   </select>
+               </div>
           </div>
-        )}
-      </div>
 
-      {/* 1. Customer Details */}
-      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-        <h2 className="text-base font-semibold text-gray-800 mb-4">Customer Details</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
-            <input 
-              type="text" 
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border"
-              placeholder="Enter name"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-            <input 
-              type="text" 
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border"
-              placeholder="Enter phone"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Doctor Name (Optional)</label>
-            <input 
-              type="text" 
-              value={doctorName}
-              onChange={(e) => setDoctorName(e.target.value)}
-              className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border"
-              placeholder="Dr. Name"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Mode</label>
-            <select 
-              value={paymentMode}
-              onChange={(e) => setPaymentMode(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2"
-            >
-              <option value="Cash">Cash</option>
-              <option value="UPI">UPI</option>
-              <option value="Card">Card</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 2. Medicine Search & Selection (Left - 2cols) */}
-        <div className="lg:col-span-2 space-y-4">
-           {/* Search Input */}
-           <div className="relative">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search medicine by name or composition (e.g. Dolo)..."
+              placeholder="Search medicines..."
+              className="w-full pl-10 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
             />
+            {isSearching && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-blue-500" />
+            )}
           </div>
 
           {/* Search Results */}
-          {searchTerm && (
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden min-h-[200px]">
-              {isSearching ? (
-                 <div className="flex items-center justify-center h-40 text-gray-500">
-                    <Loader2 className="animate-spin h-6 w-6 mr-2" /> Searching...
-                 </div>
-              ) : searchResults.length === 0 ? (
-                 <div className="flex items-center justify-center h-40 text-gray-500">
-                    No medicines found.
-                 </div>
-              ) : (
-                <div className="overflow-x-auto">
+          {searchResults.length > 0 && (
+                <div className="overflow-x-auto mt-4 border rounded-lg max-h-60 overflow-y-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 sticky top-0">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Medicine</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch</th>
@@ -331,13 +311,20 @@ const Billing = () => {
                     </tbody>
                   </table>
                 </div>
-              )}
-            </div>
-          )}
+           )}
         </div>
 
-        {/* 3. The Cart (Right - 1col) */}
-        <div className="space-y-4">
+        {/* Message Banner */}
+        {message && (
+             <div className={cn("p-4 rounded-lg", message.type === 'error' ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700")}>
+                 {message.text}
+             </div>
+        )}
+
+      </div>
+
+      {/* 3. The Cart (Right - 1col) */}
+      <div className="space-y-4">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col h-[calc(100vh-140px)]">
             <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl flex justify-between items-center">
                <h2 className="font-semibold text-gray-800 flex items-center">
@@ -428,8 +415,13 @@ const Billing = () => {
                </button>
             </div>
           </div>
-        </div>
       </div>
+       <SuccessModal
+         isOpen={successModal.isOpen}
+         onClose={() => setSuccessModal(prev => ({ ...prev, isOpen: false }))}
+         title={successModal.title}
+         message={successModal.message}
+       />
     </div>
   );
 };

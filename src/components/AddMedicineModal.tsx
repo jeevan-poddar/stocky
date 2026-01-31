@@ -19,7 +19,9 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
   isViewMode = false
 }) => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Replaced single error string with error object
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [globalError, setGlobalError] = useState<string | null>(null);
   
   // Initialize isEditing based on whether we are viewing an existing item or adding a new one
   // If we are validating data (isViewMode=true), we start in non-edit mode (false)
@@ -68,6 +70,11 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
       setFormData(prev => ({ ...prev, [name]: value }));
     }
 
+    // Clear error for this field
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+
     // Special logic for quantity_type
     if (name === 'quantity_type') {
       if (value === 'Unit') {
@@ -104,14 +111,38 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     if (!isEditing) return;
 
     setLoading(true);
-    setError(null);
+    setErrors({});
+    setGlobalError(null);
 
-    // 1. Validation: Manufacture date cannot be future
+    // --- Validation Logic ---
+    const newErrors: {[key: string]: string} = {};
+    
+    // Explicit checks:
+
+    if (!formData.name.trim()) newErrors.name = "This field is mandatory.";
+    else if (!/^[A-Za-z\s]+$/.test(formData.name)) newErrors.name = "Name can only contain letters."; // Requirement
+
+    if (!formData.composition.trim()) newErrors.composition = "This field is mandatory.";
+    
+    if (!formData.purchased_from.trim()) newErrors.purchased_from = "This field is mandatory.";
+    if (!formData.company.trim()) newErrors.company = "This field is mandatory.";
+    if (!formData.batch_no.trim()) newErrors.batch_no = "This field is mandatory.";
+    
+    // Dates
     const today = new Date().toISOString().split('T')[0];
-    if (formData.manufacture_date > today) {
-      setError("Manufacturing date cannot be in the future");
-      setLoading(false);
-      return;
+    if (!formData.manufacture_date) newErrors.manufacture_date = "This field is mandatory.";
+    else if (formData.manufacture_date > today) newErrors.manufacture_date = "Manufacturing date cannot be in the future."; // Requirement
+
+    if (!formData.expiry_date) newErrors.expiry_date = "This field is mandatory.";
+
+    if (formData.stock_packets === undefined || formData.stock_packets === null) newErrors.stock_packets = "This field is mandatory."; // 0 is valid? "empty" usually means ""
+    if (!formData.mrp) newErrors.mrp = "This field is mandatory.";
+    if (!formData.purchase_price) newErrors.purchase_price = "This field is mandatory.";
+
+    if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        setLoading(false);
+        return;
     }
 
     try {
@@ -149,7 +180,7 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
       setFormData(initialFormData);
       onClose();
     } catch (err: any) {
-      setError(err.message);
+      setGlobalError(err.message);
     } finally {
       setLoading(false);
     }
@@ -195,9 +226,9 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
               </button>
             </div>
 
-            {error && (
+            {globalError && (
               <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-md">
-                {error}
+                {globalError}
               </div>
             )}
 
@@ -209,24 +240,28 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                   <input 
                     type="text" 
                     name="name" 
-                    required 
+                    // required 
+                    autoComplete="off"
                     value={formData.name} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500" 
+                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.name ? 'border-red-500' : 'border-gray-300'}`} 
                   />
+                  {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
                 </div>
                 <div className="sm:col-span-1">
                   <label className="block text-sm font-medium text-gray-700">Composition</label>
                   <input 
                     type="text" 
                     name="composition" 
-                    required 
+                    // required 
+                    autoComplete="off"
                     value={formData.composition} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500" 
+                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.composition ? 'border-red-500' : 'border-gray-300'}`} 
                   />
+                  {errors.composition && <p className="mt-1 text-xs text-red-600">{errors.composition}</p>}
                 </div>
               </div>
 
@@ -237,26 +272,30 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                   <input 
                     type="text" 
                     name="purchased_from" 
-                    required 
+                    // required 
+                    autoComplete="off"
                     value={formData.purchased_from} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500"
+                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.purchased_from ? 'border-red-500' : 'border-gray-300'}`}
                     placeholder="e.g. Health Distributors"
                   />
+                  {errors.purchased_from && <p className="mt-1 text-xs text-red-600">{errors.purchased_from}</p>}
                 </div>
                 <div className="sm:col-span-1">
                   <label className="block text-sm font-medium text-gray-700">Company (Manufacturer)</label>
                   <input 
                     type="text" 
                     name="company" 
-                    required 
+                    // required 
+                    autoComplete="off"
                     value={formData.company} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500"
+                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.company ? 'border-red-500' : 'border-gray-300'}`}
                     placeholder="e.g. Sun Pharma"
                   />
+                  {errors.company && <p className="mt-1 text-xs text-red-600">{errors.company}</p>}
                 </div>
               </div>
 
@@ -267,12 +306,14 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                   <input 
                     type="text" 
                     name="batch_no" 
-                    required 
+                    // required 
+                    autoComplete="off"
                     value={formData.batch_no} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500" 
+                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.batch_no ? 'border-red-500' : 'border-gray-300'}`} 
                   />
+                  {errors.batch_no && <p className="mt-1 text-xs text-red-600">{errors.batch_no}</p>}
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700">Location / Rack</label>
@@ -294,24 +335,26 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                   <input 
                     type="date" 
                     name="manufacture_date" 
-                    required 
+                    // required 
                     value={formData.manufacture_date} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500" 
+                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.manufacture_date ? 'border-red-500' : 'border-gray-300'}`} 
                   />
+                  {errors.manufacture_date && <p className="mt-1 text-xs text-red-600">{errors.manufacture_date}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Expiry Date</label>
                   <input 
                     type="date" 
                     name="expiry_date" 
-                    required 
+                    // required 
                     value={formData.expiry_date} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500" 
+                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.expiry_date ? 'border-red-500' : 'border-gray-300'}`} 
                   />
+                  {errors.expiry_date && <p className="mt-1 text-xs text-red-600">{errors.expiry_date}</p>}
                 </div>
               </div>
 
@@ -350,12 +393,14 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                   <input 
                     type="number" 
                     name="stock_packets" 
-                    required 
+                    // required 
+                    autoComplete="off"
                     value={formData.stock_packets} 
                     onChange={handleChange} 
                     disabled={!isEditing}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 border disabled:bg-gray-50 disabled:text-gray-500" 
+                    className={`mt-1 block w-full border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm px-3 py-2 disabled:bg-gray-50 disabled:text-gray-500 ${errors.stock_packets ? 'border-red-500' : 'border-gray-300'}`} 
                   />
+                  {errors.stock_packets && <p className="mt-1 text-xs text-red-600">{errors.stock_packets}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Stock (Loose {formData.quantity_type}s)</label>
@@ -382,13 +427,15 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                       type="number" 
                       step="0.01" 
                       name="mrp" 
-                      required 
+                      // required 
+                      autoComplete="off"
                       value={formData.mrp} 
                       onChange={handleChange} 
                       disabled={!isEditing}
-                      className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 px-3 py-2 sm:text-sm border-gray-300 rounded-md border disabled:bg-gray-50 disabled:text-gray-500"
+                      className={`focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 px-3 py-2 sm:text-sm border rounded-md disabled:bg-gray-50 disabled:text-gray-500 ${errors.mrp ? 'border-red-500' : 'border-gray-300'}`}
                     />
                   </div>
+                  {errors.mrp && <p className="mt-1 text-xs text-red-600">{errors.mrp}</p>}
                 </div>
                  <div>
                   <label className="block text-sm font-medium text-gray-700">Purchase Price</label>
@@ -400,13 +447,15 @@ const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                       type="number" 
                       step="0.01" 
                       name="purchase_price" 
-                      required 
+                      // required 
+                      autoComplete="off"
                       value={formData.purchase_price} 
                       onChange={handleChange} 
                       disabled={!isEditing}
-                      className="focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 px-3 py-2 sm:text-sm border-gray-300 rounded-md border disabled:bg-gray-50 disabled:text-gray-500"
+                      className={`focus:ring-blue-500 focus:border-blue-500 block w-full pl-7 px-3 py-2 sm:text-sm border rounded-md disabled:bg-gray-50 disabled:text-gray-500 ${errors.purchase_price ? 'border-red-500' : 'border-gray-300'}`}
                     />
                   </div>
+                  {errors.purchase_price && <p className="mt-1 text-xs text-red-600">{errors.purchase_price}</p>}
                 </div>
               </div>
 

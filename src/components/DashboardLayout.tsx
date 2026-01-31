@@ -198,7 +198,13 @@ const DashboardLayout = () => {
                     )}
                   </div>
                   <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 text-center">
-                    <button className="text-xs font-medium text-blue-600 hover:text-blue-700">
+                    <button 
+                      onClick={() => {
+                        navigate('/notifications');
+                        setIsNotificationsOpen(false);
+                      }}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                    >
                       View all notifications
                     </button>
                   </div>

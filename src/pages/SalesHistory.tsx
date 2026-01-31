@@ -6,6 +6,7 @@ import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
 import { type Bill, type Profile } from '../types';
 import BillDetailsModal from '../components/BillDetailsModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 const SalesHistory = () => {
   const [bills, setBills] = useState<Bill[]>([]);
@@ -15,6 +16,10 @@ const SalesHistory = () => {
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [shopDetails, setShopDetails] = useState<Profile | null>(null);
+
+  // Delete Modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [billToDelete, setBillToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     fetchBills();
@@ -47,7 +52,7 @@ const SalesHistory = () => {
         setShopDetails(data);
       }
     } catch (error) {
-      console.error('Error fetching shop details:', error);
+      // console.error('Error fetching shop details:', error);
     }
   };
 
@@ -63,25 +68,32 @@ const SalesHistory = () => {
       setBills(data || []);
       setFilteredBills(data || []);
     } catch (error) {
-      console.error('Error fetching bills:', error);
+      // console.error('Error fetching bills:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (billId: string) => {
-    if (window.confirm('Are you sure you want to delete this bill?')) {
-      try {
-        const { error } = await supabase.from('bills').delete().eq('id', billId);
+  const handleDeleteClick = (billId: string) => {
+    setBillToDelete(billId);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!billToDelete) return;
+    
+    try {
+        const { error } = await supabase.from('bills').delete().eq('id', billToDelete);
         if (error) throw error;
         
         // Update local state
-        const updatedBills = bills.filter((b) => b.id !== billId);
+        const updatedBills = bills.filter((b) => b.id !== billToDelete);
         setBills(updatedBills);
-      } catch (error) {
-        console.error('Error deleting bill:', error);
-        alert('Failed to delete bill.');
-      }
+    } catch (error) {
+        // console.error('Error deleting bill:', error);
+    } finally {
+        setIsDeleteModalOpen(false);
+        setBillToDelete(null);
     }
   };
 
@@ -165,8 +177,7 @@ const SalesHistory = () => {
 
       doc.save(`Invoice_${bill.id.slice(0, 8)}.pdf`);
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Failed to generate invoice PDF.');
+      // console.error('Error generating PDF:', error);
     }
   };
 
@@ -181,6 +192,16 @@ const SalesHistory = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         billId={selectedBillId}
+      />
+      
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Bill?"
+        message="Are you sure you want to delete this bill? This action cannot be undone."
+        confirmText="Delete"
+        isDestructive={true}
       />
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -275,7 +296,7 @@ const SalesHistory = () => {
                           <Download className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(bill.id)}
+                          onClick={() => handleDeleteClick(bill.id)}
                           className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Delete Bill"
                         >

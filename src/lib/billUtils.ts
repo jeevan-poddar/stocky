@@ -20,7 +20,7 @@ export async function getNewInvoiceNumber(): Promise<string> {
       .maybeSingle();
 
     if (error) {
-        console.error('Error fetching last bill:', error);
+        // console.error('Error fetching last bill:', error);
         throw error;
     }
 
@@ -48,7 +48,7 @@ export async function getNewInvoiceNumber(): Promise<string> {
     return `INV-${todayStr}-${timeStr}-${serialStr}`;
 
   } catch (error) {
-    console.error('Error generating invoice number:', error);
+    // console.error('Error generating invoice number:', error);
     throw new Error('Failed to generate Invoice Number');
   }
 }

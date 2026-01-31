@@ -18,7 +18,7 @@ export async function checkInventoryNotifications(): Promise<NotificationItem[]>
       .maybeSingle();
 
     if (profileError || !profile) {
-      console.log('No profile settings found, skipping notification check.');
+      // console.log('No profile settings found, skipping notification check.');
       return [];
     }
 
@@ -32,11 +32,12 @@ export async function checkInventoryNotifications(): Promise<NotificationItem[]>
     const todayStr = format(today, 'yyyy-MM-dd');
 
     // 2. Low Stock Check
-    // Query medicines where stock_packets <= threshold
+    // Query medicines where stock_packets <= threshold AND expiry_date >= today
     const { data: lowStockItems, error: stockError } = await supabase
       .from('medicines')
       .select('name, stock_packets')
       .lte('stock_packets', defaultLowStock)
+      .gte('expiry_date', todayStr) // Exclude already expired items from restock alerts
       .limit(5); // Limit to avoid massive lists
 
     if (!stockError && lowStockItems) {
@@ -74,12 +75,13 @@ export async function checkInventoryNotifications(): Promise<NotificationItem[]>
     const alertDate = addDays(today, defaultExpiryDays);
     const alertDateStr = format(alertDate, 'yyyy-MM-dd');
 
-    // Query: expiry_date >= today AND expiry_date <= alertDate
+    // Query: expiry_date >= today AND expiry_date <= alertDate AND stock_packets > 0
     const { data: expiringItems, error: expiryError } = await supabase
       .from('medicines')
       .select('name, expiry_date')
       .gte('expiry_date', todayStr)
       .lte('expiry_date', alertDateStr)
+      .gt('stock_packets', 0) // Exclude out of stock items from expiry warnings
       .order('expiry_date', { ascending: true })
       .limit(10);
 
@@ -97,7 +99,7 @@ export async function checkInventoryNotifications(): Promise<NotificationItem[]>
     return notifications;
 
   } catch (error) {
-    console.error('Error checking inventory notifications:', error);
+    // console.error('Error checking inventory notifications:', error);
     return [];
   }
 }

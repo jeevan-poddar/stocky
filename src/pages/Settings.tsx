@@ -1,16 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Store, MapPin, Bell, Save, Loader2 } from 'lucide-react';
-
-interface SettingsForm {
-  shop_name: string;
-  owner_name: string;
-  phone: string;
-  city: string;
-  state: string;
-  expiry_threshold_days: number;
-  low_stock_threshold: number;
-}
+import type { Profile } from '../types';
+import SuccessModal from '../components/SuccessModal';
 
 const Settings = () => {
   const [loading, setLoading] = useState(true);
@@ -18,7 +10,7 @@ const Settings = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  const [formData, setFormData] = useState<SettingsForm>({
+  const [formData, setFormData] = useState<Partial<Profile>>({
     shop_name: '',
     owner_name: '',
     phone: '',
@@ -26,6 +18,13 @@ const Settings = () => {
     state: '',
     expiry_threshold_days: 60,
     low_stock_threshold: 10,
+  });
+
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [successModal, setSuccessModal] = useState<{ isOpen: boolean; title: string; message: string }>({
+    isOpen: false,
+    title: '',
+    message: ''
   });
 
   useEffect(() => {
@@ -45,10 +44,11 @@ const Settings = () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
+        .eq('id', user.id)
         .single();
 
       if (error) {
-          console.error('Error fetching profile:', error);
+          // console.error('Error fetching profile:', error);
       }
 
       if (data) {
@@ -63,7 +63,7 @@ const Settings = () => {
         });
       }
     } catch (error) {
-      console.error('Error:', error);
+      // console.error('Error:', error);
     } finally {
       setLoading(false);
     }
@@ -73,9 +73,12 @@ const Settings = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      ...prev,
       [name]: (name === 'expiry_threshold_days' || name === 'low_stock_threshold') ? parseInt(value) || 0 : value
     }));
+     // Clear error
+     if (errors[name]) {
+        setErrors(prev => ({...prev, [name]: ''}));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,9 +86,21 @@ const Settings = () => {
     if (!userId) return;
 
     // Validation
-    if (!formData.phone.trim()) {
-      setMessage({ type: 'error', text: 'Phone number is required' });
-      return;
+    const newErrors: { [key: string]: string } = {};
+    let isValid = true;
+
+    if (!formData.phone?.trim()) { newErrors.phone = "Phone number is required"; isValid = false; }
+    // Optional fields logic: keep as is, or maybe enforce shop name? User didn't specify, but "Pharmacy Name (mandatory)" was in my plan, so I should enforce it.
+    // Plan said: "Pharmacy Name (mandatory)", "Address (mandatory)".
+    // So enforcing those.
+    if (!formData.shop_name?.trim()) { newErrors.shop_name = "Shop name is required"; isValid = false; }
+    if (!formData.owner_name?.trim()) { newErrors.owner_name = "Owner name is required"; isValid = false; }
+    if (!formData.city?.trim()) { newErrors.city = "City is required"; isValid = false; }
+    if (!formData.state?.trim()) { newErrors.state = "State is required"; isValid = false; }
+
+    if (!isValid) {
+        setErrors(newErrors);
+        return;
     }
 
     setSaving(true);
@@ -107,12 +122,14 @@ const Settings = () => {
 
       if (error) throw error;
 
-      setMessage({ type: 'success', text: 'Settings updated successfully' });
+      setSuccessModal({
+          isOpen: true,
+          title: 'Settings Saved',
+          message: 'Your profile settings have been updated successfully.'
+      });
       
-      // Clear success message after 3 seconds
-      setTimeout(() => setMessage(null), 3000);
     } catch (error) {
-      console.error('Error updating profile:', error);
+      // console.error('Error updating profile:', error);
       setMessage({ type: 'error', text: 'Failed to update settings' });
     } finally {
       setSaving(false);
@@ -162,34 +179,40 @@ const Settings = () => {
               <input
                 type="text"
                 name="shop_name"
+                autoComplete="off"
                 value={formData.shop_name}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all ${errors.shop_name ? 'border-red-500' : 'border-gray-200'}`}
                 placeholder="e.g. HealthPlus Pharmacy"
               />
+              {errors.shop_name && <p className="text-xs text-red-600">{errors.shop_name}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Owner Name</label>
               <input
                 type="text"
                 name="owner_name"
+                autoComplete="off"
                 value={formData.owner_name}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all ${errors.owner_name ? 'border-red-500' : 'border-gray-200'}`}
                 placeholder="e.g. John Doe"
               />
+              {errors.owner_name && <p className="text-xs text-red-600">{errors.owner_name}</p>}
             </div>
             <div className="md:col-span-2 space-y-2">
               <label className="text-sm font-medium text-gray-700">Phone Number <span className="text-red-500">*</span></label>
               <input
-                type="tel"
+                type="text"
                 name="phone"
+                autoComplete="off"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all ${errors.phone ? 'border-red-500' : 'border-gray-200'}`}
                 placeholder="e.g. +91 98765 43210"
-                required
+                // required 
               />
+               {errors.phone && <p className="text-xs text-red-600">{errors.phone}</p>}
             </div>
           </div>
         </div>
@@ -211,22 +234,26 @@ const Settings = () => {
               <input
                 type="text"
                 name="city"
+                autoComplete="off"
                 value={formData.city}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all ${errors.city ? 'border-red-500' : 'border-gray-200'}`}
                 placeholder="e.g. Mumbai"
               />
+              {errors.city && <p className="text-xs text-red-600">{errors.city}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">State</label>
               <input
                 type="text"
                 name="state"
+                autoComplete="off"
                 value={formData.state}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all ${errors.state ? 'border-red-500' : 'border-gray-200'}`}
                 placeholder="e.g. Maharashtra"
               />
+              {errors.state && <p className="text-xs text-red-600">{errors.state}</p>}
             </div>
           </div>
         </div>
@@ -306,6 +333,12 @@ const Settings = () => {
           </button>
         </div>
       </form>
+      <SuccessModal
+        isOpen={successModal.isOpen}
+        onClose={() => setSuccessModal(prev => ({ ...prev, isOpen: false }))}
+        title={successModal.title}
+        message={successModal.message}
+      />
     </div>
   );
 }

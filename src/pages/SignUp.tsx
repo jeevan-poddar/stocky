@@ -2,11 +2,19 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Loader2 } from 'lucide-react';
+import SuccessModal from '../components/SuccessModal';
 
 const SignUp = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState<{isOpen: boolean, title: string, message: string}>({
+      isOpen: false,
+      title: '',
+      message: ''
+  });
+  // Errors object state
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [globalError, setGlobalError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     email: '',
@@ -19,13 +27,52 @@ const SignUp = () => {
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+     // Clear error for the specific field when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
+
+  const validateForm = () => {
+      const newErrors: { [key: string]: string } = {};
+      let isValid = true;
+
+      if (!formData.email.trim()) {
+          newErrors.email = "This field is mandatory.";
+          isValid = false;
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+          newErrors.email = "Please enter a valid email address."; 
+          isValid = false;
+      }
+
+      if (!formData.password) {
+          newErrors.password = "This field is mandatory.";
+          isValid = false;
+      } else if (formData.password.length < 6) {
+           newErrors.password = "Password must be at least 6 characters.";
+           isValid = false;
+      }
+
+      if (!formData.shopName.trim()) { newErrors.shopName = "This field is mandatory."; isValid = false; }
+      if (!formData.ownerName.trim()) { newErrors.ownerName = "This field is mandatory."; isValid = false; }
+      if (!formData.phone.trim()) { newErrors.phone = "This field is mandatory."; isValid = false; }
+      if (!formData.city.trim()) { newErrors.city = "This field is mandatory."; isValid = false; }
+      if (!formData.state.trim()) { newErrors.state = "This field is mandatory."; isValid = false; }
+
+      setErrors(newErrors);
+      return isValid;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) return;
+
     setLoading(true);
-    setError(null);
+    setErrors({});
+    setGlobalError(null);
 
     try {
       const { error } = await supabase.auth.signUp({
@@ -44,9 +91,19 @@ const SignUp = () => {
 
       if (error) throw error;
       
-      navigate('/dashboard');
+      // Show success modal
+      setSuccessModal({
+        isOpen: true,
+        title: 'Sign Up Successful!',
+        message: 'Please check your email to confirm your account.'
+      });
+      // Delay navigation so user can see the modal
+      setTimeout(() => {
+          navigate('/login');
+      }, 3000);
+
     } catch (err: any) {
-      setError(err.message);
+      setGlobalError(err.message);
     } finally {
       setLoading(false);
     }
@@ -58,9 +115,9 @@ const SignUp = () => {
         <h3 className="text-lg font-medium leading-6 text-gray-900 border-b pb-2 mb-4">
           Create Strategy Account
         </h3>
-        {error && (
+        {globalError && (
             <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-md">
-              {error}
+              {globalError}
             </div>
         )}
         <form className="space-y-6" onSubmit={handleSubmit}>
@@ -72,13 +129,16 @@ const SignUp = () => {
               <input
                 id="email"
                 name="email"
-                type="email"
-                autoComplete="email"
-                required
+                type="text"
+                autoComplete="off"
+                // required
                 value={formData.email}
                 onChange={handleChange}
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                 className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                  errors.email ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
+               {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email}</p>}
             </div>
           </div>
 
@@ -91,12 +151,15 @@ const SignUp = () => {
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="new-password"
-                required
+                autoComplete="off"
+                // required
                 value={formData.password}
                 onChange={handleChange}
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                  errors.password ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
+              {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password}</p>}
             </div>
           </div>
 
@@ -110,11 +173,15 @@ const SignUp = () => {
                   id="shopName"
                   name="shopName"
                   type="text"
-                  required
+                  autoComplete="off"
+                  // required
                   value={formData.shopName}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                  errors.shopName ? 'border-red-500' : 'border-gray-300'
+                }`}
                 />
+                 {errors.shopName && <p className="mt-1 text-xs text-red-600">{errors.shopName}</p>}
               </div>
             </div>
 
@@ -127,11 +194,15 @@ const SignUp = () => {
                   id="ownerName"
                   name="ownerName"
                   type="text"
-                  required
+                  autoComplete="off"
+                  // required
                   value={formData.ownerName}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                   className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                  errors.ownerName ? 'border-red-500' : 'border-gray-300'
+                }`}
                 />
+                 {errors.ownerName && <p className="mt-1 text-xs text-red-600">{errors.ownerName}</p>}
               </div>
             </div>
           </div>
@@ -144,12 +215,16 @@ const SignUp = () => {
                 <input
                   id="phone"
                   name="phone"
-                  type="tel"
-                  required
+                  type="text" // Changed to text for consistent validation control
+                  autoComplete="off"
+                  // required
                   value={formData.phone}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                   className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                  errors.phone ? 'border-red-500' : 'border-gray-300'
+                }`}
                 />
+                 {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone}</p>}
               </div>
             </div>
 
@@ -163,11 +238,15 @@ const SignUp = () => {
                   id="city"
                   name="city"
                   type="text"
-                  required
+                  autoComplete="off"
+                  // required
                   value={formData.city}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                   className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                  errors.city ? 'border-red-500' : 'border-gray-300'
+                }`}
                 />
+                 {errors.city && <p className="mt-1 text-xs text-red-600">{errors.city}</p>}
               </div>
             </div>
 
@@ -180,11 +259,15 @@ const SignUp = () => {
                   id="state"
                   name="state"
                   type="text"
-                  required
+                  autoComplete="off"
+                  // required
                   value={formData.state}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                   className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                  errors.state ? 'border-red-500' : 'border-gray-300'
+                }`}
                 />
+                 {errors.state && <p className="mt-1 text-xs text-red-600">{errors.state}</p>}
               </div>
             </div>
           </div>
@@ -226,6 +309,13 @@ const SignUp = () => {
           </div>
         </div>
       </div>
+       <SuccessModal
+        isOpen={successModal.isOpen}
+        onClose={() => setSuccessModal(prev => ({...prev, isOpen: false}))}
+        title={successModal.title}
+        message={successModal.message}
+        autoClose={false} 
+      />
     </div>
   );
 };

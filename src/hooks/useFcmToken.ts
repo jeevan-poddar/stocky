@@ -18,16 +18,16 @@ const useFcmToken = () => {
               vapidKey: 'BB80PbV6j0HSEt7o_Fh5IKRF6DduEd-gxcDcZZMbciyU8-ug2ccPZfVHH_8ahY92O9ZuClNUMv0L8feGGeu9G-M' 
             });
             if (currentToken) {
-                console.log('Use this string to send notifications:', currentToken);
+                // console.log('Use this string to send notifications:', currentToken);
                 setToken(currentToken);
                 // TODO: Save this token to your database
             } else {
-              console.log('No registration token available. Request permission to generate one.');
+              // console.log('No registration token available. Request permission to generate one.');
             }
           }
         }
       } catch (error) {
-        console.log('An error occurred while retrieving token. ', error);
+        // console.log('An error occurred while retrieving token. ', error);
       }
     };
 

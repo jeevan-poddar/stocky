@@ -40,7 +40,7 @@ const BillDetailsModal = ({ isOpen, onClose, billId }: BillDetailsModalProps) =>
         if (itemsError) throw itemsError;
         setItems(itemsData || []);
       } catch (error) {
-        console.error('Error fetching bill details:', error);
+        // console.error('Error fetching bill details:', error);
       } finally {
         setLoading(false);
       }

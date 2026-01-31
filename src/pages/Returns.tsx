@@ -23,6 +23,8 @@ const Returns = () => {
   const [returnReason, setReturnReason] = useState<string>('Expired');
 
   const [thresholdDays, setThresholdDays] = useState(60);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeTab === 'alerts') {
@@ -60,7 +62,7 @@ const Returns = () => {
       const stockItems = (data || []).filter(m => m.stock_packets > 0 || m.stock_loose > 0);
       setExpiringMedicines(stockItems);
     } catch (error) {
-      console.error('Error fetching expiring medicines:', error);
+      // console.error('Error fetching expiring medicines:', error);
     } finally {
       setLoading(false);
     }
@@ -77,7 +79,7 @@ const Returns = () => {
       if (error) throw error;
       setReturnHistory(data || []);
     } catch (error) {
-      console.error('Error fetching return history:', error);
+      // console.error('Error fetching return history:', error);
     } finally {
       setLoading(false);
     }
@@ -88,6 +90,7 @@ const Returns = () => {
     setReturnPackets('');
     setReturnLoose('');
     setReturnReason('Expired');
+    setModalError(null);
     setIsReturnModalOpen(true);
   };
 
@@ -99,12 +102,12 @@ const Returns = () => {
         const loose = parseInt(returnLoose || '0');
 
         if (packets === 0 && loose === 0) {
-            alert('Please enter a quantity to return.');
+            setModalError('Please enter a quantity to return.');
             return;
         }
 
         if (packets > selectedMedicine.stock_packets || loose > selectedMedicine.stock_loose) {
-            alert('Cannot return more than current stock.');
+            setModalError('Cannot return more than current stock.');
             return;
         }
 
@@ -113,7 +116,7 @@ const Returns = () => {
             const { data: { user } } = await supabase.auth.getUser();
 
             if (!user) {
-                alert("You must be logged in to process returns.");
+                setModalError("You must be logged in to process returns.");
                 return;
             }
 
@@ -149,11 +152,12 @@ const Returns = () => {
             // 3. Update local state
             setIsReturnModalOpen(false);
             fetchExpiringMedicines();
-            alert('Return processed successfully');
+            setMessage({ type: 'success', text: 'Return processed successfully' });
+            setTimeout(() => setMessage(null), 3000);
 
         } catch (error: any) {
-            console.error('Error processing return:', error.message);
-            alert('Failed to process return: ' + error.message);
+            // console.error('Error processing return:', error.message);
+            setModalError('Failed to process return: ' + error.message);
         }
     };
 
@@ -191,6 +195,15 @@ const Returns = () => {
           </button>
         </div>
       </div>
+
+       {message && (
+        <div className={`p-4 rounded-lg flex items-center justify-between ${
+            message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+        }`}>
+            <span>{message.text}</span>
+            <button onClick={() => setMessage(null)} className="hover:opacity-75"><X className="h-4 w-4" /></button>
+        </div>
+      )}
 
       {activeTab === 'alerts' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -334,6 +347,11 @@ const Returns = () => {
             </div>
             
             <form onSubmit={handleReturnSubmit} className="p-6 space-y-4">
+              {modalError && (
+                <div className="p-3 bg-red-50 text-red-700 text-sm rounded-md mb-2">
+                  {modalError}
+                </div>
+              )}
               <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
                  <p className="text-sm text-blue-800 font-medium">Returning: {selectedMedicine.name}</p>
                  <p className="text-xs text-blue-600 mt-1">Batch: {selectedMedicine.batch_no} • Expires: {format(new Date(selectedMedicine.expiry_date), 'dd MMM yyyy')}</p>
