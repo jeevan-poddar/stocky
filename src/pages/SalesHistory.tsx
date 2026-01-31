@@ -124,6 +124,7 @@ const SalesHistory = () => {
         const cityState = [shopDetails.city, shopDetails.state].filter(Boolean).join(', ');
         if (cityState) centerText(cityState, 28, 12);
         if (shopDetails.phone) centerText(`Phone: ${shopDetails.phone}`, 34, 12);
+        if (shopDetails.dl_number) centerText(`DL No: ${shopDetails.dl_number}`, 40, 12);
       } else {
         centerText('Stocky', 20, 22, true);
       }
